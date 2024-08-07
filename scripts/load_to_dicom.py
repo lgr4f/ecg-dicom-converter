@@ -41,7 +41,7 @@ def add_patient_study_info(ds, metadata, character_set='ISO_IR 192', procedure_c
     ds.InstanceCreationTime = datetime.now().strftime('%H%M%S')
     ds.SOPClassUID = pydicom.uid.generate_uid()
     ds.SOPInstanceUID = pydicom.uid.generate_uid()
-    ds.SeriesInstanceUID = "1" # so far no corresponding Identfier is known in muse xml
+    ds.SeriesInstanceUID = "1"
     ds.StudyDate = format_date(metadata.get('admit_date', ''))
     ds.SeriesDate = format_date(metadata.get('admit_date', ''))
     ds.ContentDate = format_date(metadata.get('acquisition_date', ''))
@@ -60,7 +60,7 @@ def add_patient_study_info(ds, metadata, character_set='ISO_IR 192', procedure_c
     ds.ProcedureCodeSequence[0].CodeMeaning = procedure_meaning
     ds.SeriesDescription = 'RestingECG'
     ds.PatientID = metadata.get('patient_id', '')
-    ds.PatientAge = metadata.get('patient_age', '').zfill(3) + 'Y'  # Ensure age is formatted correctly
+    ds.PatientAge = metadata.get('patient_age', '').zfill(3) + 'Y'
     ds.PatientSex = metadata.get('patient_sex', '')
     ds.PatientName = metadata.get('patient_name', 'Unknown^Patient')
     ds.PatientBirthDate = format_date(metadata.get('patient_birthdate', ''))
@@ -68,7 +68,7 @@ def add_patient_study_info(ds, metadata, character_set='ISO_IR 192', procedure_c
     ds.PerformedProcedureStepStartDate = format_date(metadata.get('admit_date', ''))
     ds.PerformedProcedureStepStartTime = format_time(metadata.get('admit_time', ''))
 
-    #Additional measurements (if needed)
+    # Additional measurements (if needed)
     measurements = metadata.get('measurements', {})
     ds.add_new((0x0040, 0x0275), 'SQ', Sequence())
     item = Dataset()
@@ -77,6 +77,10 @@ def add_patient_study_info(ds, metadata, character_set='ISO_IR 192', procedure_c
     item.CodeMeaning = 'Ventricular rate'
     item.MeasuredValueSequence = [Dataset()]
     item.MeasuredValueSequence[0].NumericValue = measurements.get('ventricular_rate', '')
+    item.MeasuredValueSequence[0].MeasurementUnitsCodeSequence = [Dataset()]
+    item.MeasuredValueSequence[0].MeasurementUnitsCodeSequence[0].CodeValue = 'uV'
+    item.MeasuredValueSequence[0].MeasurementUnitsCodeSequence[0].CodingSchemeDesignator = 'UCUM'
+    item.MeasuredValueSequence[0].MeasurementUnitsCodeSequence[0].CodeMeaning = 'microvolt'
     ds[0x0040, 0x0275].value.append(item)
 
     # Add other measurements similarly if needed...
@@ -111,6 +115,10 @@ def add_waveform_data(ds, data, metadata):
         source.CodeValue = lead_id
         source.CodingSchemeDesignator = 'MDC'
         source.CodeMeaning = lead_id
+        channel_def_item.MeasurementUnitsCodeSequence = Sequence([Dataset()])
+        channel_def_item.MeasurementUnitsCodeSequence[0].CodeValue = 'uV'
+        channel_def_item.MeasurementUnitsCodeSequence[0].CodingSchemeDesignator = 'UCUM'
+        channel_def_item.MeasurementUnitsCodeSequence[0].CodeMeaning = 'microvolt'
         waveform_item.ChannelDefinitionSequence.append(channel_def_item)
         waveform_data[:, i] = data[lead_id] * 1000
 
@@ -119,20 +127,51 @@ def add_waveform_data(ds, data, metadata):
 
 def add_annotations(ds, metadata):
     ds.WaveformAnnotationSequence = Sequence()
-    annotation_group_number = 0
+    annotation_group_number = 1  # start from 1 for DICOM compliance
+
     for diagnosis in metadata.get('diagnosis', []):
         annotation_item = Dataset()
-        annotation_item.ReferencedWaveformChannels = [1, 0]
+        annotation_item.ReferencedWaveformChannels = [1]
         annotation_item.AnnotationGroupNumber = annotation_group_number
         annotation_item.UnformattedTextValue = diagnosis
         ds.WaveformAnnotationSequence.append(annotation_item)
+        annotation_group_number += 1
+
+    # Add QRSTimes annotations
+    # for qrs in metadata.get('qrstimes', []):
+    #     annotation_item = Dataset()
+    #     annotation_item.ReferencedWaveformChannels = [1]
+    #     annotation_item.AnnotationGroupNumber = annotation_group_number
+    #     annotation_item.RRIntervalTimeMeasured = pydicom.valuerep.DSfloat(metadata['global_rr'])
+    #     annotation_item.AnnotationTime = pydicom.valuerep.DSfloat(qrs['time'])
+    #     annotation_item.ConceptNameCodeSequence = Sequence([Dataset()])
+    #     annotation_item.ConceptNameCodeSequence[0].CodeValue = 'QRS'
+    #     annotation_item.ConceptNameCodeSequence[0].CodingSchemeDesignator = 'DCM'
+    #     annotation_item.ConceptNameCodeSequence[0].CodeMeaning = 'QRS complex'
+    #     ds.WaveformAnnotationSequence.append(annotation_item)
+    #     annotation_group_number += 1
+
+    for rr in metadata.get('rrintervals', []):
+        annotation_item = Dataset()
+        annotation_item.ReferencedWaveformChannels = [2]
+        annotation_item.AnnotationGroupNumber = annotation_group_number
+        annotation_item.NumericValue = pydicom.valuerep.DSfloat(rr['interval'])
+
+        # Measurement Units Code Sequence
+        annotation_item.MeasurementUnitsCodeSequence = Sequence([Dataset()])
+        mu_item = Dataset()
+        mu_item.CodeValue = 'ms'
+        mu_item.CodingSchemeDesignator = 'UCUM'
+        mu_item.CodingSchemeVersion = '1.4'
+        mu_item.CodeMeaning = 'millisecond'
+        annotation_item.MeasurementUnitsCodeSequence.append(mu_item)
         annotation_group_number += 1
 
 def create_dicom_ecg(data, metadata, output_file, character_set='ISO_IR 192', procedure_code='P2-3120A', procedure_meaning='12 lead ECG'):
     file_meta = create_file_meta()
     ds = FileDataset(output_file, {}, file_meta=file_meta, preamble=b"\0" * 128)
     add_patient_study_info(ds, metadata, character_set, procedure_code, procedure_meaning)
-    add_waveform_data(ds, data,metadata)
+    add_waveform_data(ds, data, metadata)
     add_annotations(ds, metadata)
     ds.save_as(output_file)
     print(f'DICOM file saved as {output_file}')
