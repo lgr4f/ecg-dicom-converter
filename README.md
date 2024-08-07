@@ -1,5 +1,5 @@
 
-# My ECG Package
+# DICOM-ECG-Converter
 
 This package provides tools to extract ECG data from WFDB and Muse XML formats and convert it to DICOM format.
 
@@ -16,5 +16,7 @@ pip install .
 Here is an example of how to use this package:
 
 ```sh
-ecg-dicom-converter path_to_input_file path_to_output_file
+ecg-dicom-converter path_to_input_file path_to_output
+OR
+ecg-dicom-converter path_to_input path_to_output -r
 ```
