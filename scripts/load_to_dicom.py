@@ -42,6 +42,7 @@ def add_patient_study_info(ds, metadata, character_set='ISO_IR 192', procedure_c
     ds.SOPClassUID = pydicom.uid.generate_uid()
     ds.SOPInstanceUID = pydicom.uid.generate_uid()
     ds.SeriesInstanceUID = "1"
+    ds.StudyInstanceUID = pydicom.uid.generate_uid()
     ds.StudyDate = format_date(metadata.get('admit_date', ''))
     ds.SeriesDate = format_date(metadata.get('admit_date', ''))
     ds.ContentDate = format_date(metadata.get('acquisition_date', ''))
