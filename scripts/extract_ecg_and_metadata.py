@@ -37,6 +37,7 @@ def extract_muse_xml_data(file_path):
     tree = ET.parse(file_path)
     root = tree.getroot()
     leads = {}
+    lead_filters = {}
 
     for waveform in root.findall('.//Waveform'):
         for lead in waveform.findall('LeadData'):
@@ -46,10 +47,27 @@ def extract_muse_xml_data(file_path):
             data_points_mV = decode_waveform_data(waveform_data, amplitude_units_per_bit)
             leads[lead_id] = data_points_mV
 
+            # Extract channel-specific filter values
+            lead_filters[lead_id] = {
+                'HighPassFilter': waveform.findtext('HighPassFilter', '0'),
+                'LowPassFilter': waveform.findtext('LowPassFilter', '0'),
+                'ACFilter': waveform.findtext('ACFilter', '0')
+            }
+
+    # Calculate the manually derived leads
     leads['III'] = np.subtract(leads['II'], leads['I'])
     leads['aVR'] = -(leads['I'] + leads['II']) / 2
     leads['aVL'] = leads['I'] - (leads['II'] / 2)
     leads['aVF'] = leads['II'] - (leads['I'] / 2)
+
+
+    # Inherit the filter settings from the original leads
+    lead_filters['III'] = lead_filters['II']  # III is derived from II and I, choose II or I
+    lead_filters['aVR'] = lead_filters['I']   # aVR is derived from I and II, choose I or average
+    lead_filters['aVL'] = lead_filters['I']   # aVL is derived from I and II, choose I
+    lead_filters['aVF'] = lead_filters['II']  # aVF is derived from II and I, choose II
+
+
 
     # Extract additional metadata
     patient = root.find('.//PatientDemographics')
@@ -58,7 +76,8 @@ def extract_muse_xml_data(file_path):
     measurements = root.find('.//RestingECGMeasurements')
 
     metadata = {
-        'patient_id': patient.findtext('PatientID')
+        'patient_id': patient.findtext('PatientID'),
+        'lead_filters': lead_filters
     }
 
     if patient is not None:
