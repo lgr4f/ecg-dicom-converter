@@ -105,8 +105,8 @@ def add_patient_study_info(ds, metadata, file_meta, character_set='ISO_IR 192', 
     ds.PatientName = metadata.get('patient_name', 'Unknown^Patient')
     ds.PatientBirthDate = format_date(metadata.get('patient_birthdate', ''))
     # ds.EthnicGroup = 'Undefined'
-    ds.PerformedProcedureStepStartDate = format_date(metadata.get('admit_date', ''))
-    ds.PerformedProcedureStepStartTime = format_time(metadata.get('admit_time', ''))
+    ds.PerformedProcedureStepStartDate = format_date(metadata.get('AcquisitionDate', ''))
+    ds.PerformedProcedureStepStartTime = format_time(metadata.get('AcquisitionTime', ''))
 
     # Additional measurements (if needed)
     measurements = metadata.get('measurements', {})

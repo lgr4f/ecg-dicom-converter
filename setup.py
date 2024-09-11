@@ -5,9 +5,9 @@ setup(
     version='0.1.1',
     packages=find_packages(),
     install_requires=[
-        'wfdb',
-        'numpy',
-        'pydicom'
+        'wfdb>=3.3.0',
+        'numpy>=1.18.4',
+        'pydicom>=2.1.0'
     ],
     entry_points={
         'console_scripts': [

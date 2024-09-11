@@ -95,8 +95,8 @@ def extract_muse_xml_data(file_path):
         metadata['site'] = test.findtext('SiteName')
 
     if order is not None:
-        metadata['admit_date'] = order.findtext('AdmitDate')
-        metadata['admit_time'] = order.findtext('AdmitTime')
+        metadata['AcquisitionDate'] = order.findtext('AcquisitionDate')
+        metadata['AcquisitionTime'] = order.findtext('AcquisitionTime')
 
     if measurements is not None:
         metadata['measurements'] = {
