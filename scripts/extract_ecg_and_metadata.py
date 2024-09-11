@@ -95,10 +95,10 @@ def extract_muse_xml_data(file_path):
             metadata['device'] = test.findtext('AcquisitionDevice')
             metadata['site'] = test.findtext('SiteName')
 
-        #commented out because the order section needs a connection to the HIS to get patient information
-        #if order is not None:
-         #   metadata['admittime'] = order.findtext('AdmitTime')
-          #  metadata['admitdate'] = order.findtext('AdmitDate')
+        # needs a connetion to the HIS for the information
+        if order is not None:
+            metadata['admit_time'] = order.findtext('AdmitTime')
+            metadata['admit_date'] = order.findtext('AdmitDate')
 
         if measurements is not None:
             metadata['measurements'] = {

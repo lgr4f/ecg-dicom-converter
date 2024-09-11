@@ -6,6 +6,7 @@ import numpy as np
 import uuid
 import hashlib
 import socket
+import warnings
 
 def generate_implementation_uid():
     # MAC-adress of computer
@@ -77,34 +78,74 @@ def add_patient_study_info(ds, metadata, file_meta, character_set='ISO_IR 192', 
     ds.SpecificCharacterSet = character_set
     ds.InstanceCreationDate = datetime.now().strftime('%Y%m%d')
     ds.InstanceCreationTime = datetime.now().strftime('%H%M%S')
-    ds.SOPClassUID = file_meta.get("MediaStorageSOPClassUID") # ID = "12-lead ECG Waveform Storage" https://dicom.nema.org/dicom/2013/output/chtml/part04/sect_i.4.html
-    ds.SOPInstanceUID = file_meta.get("MediaStorageSOPInstanceUID") #standard value for 12-lead ECG Waveform Storage https://dicom.nema.org/dicom/2013/output/chtml/part04/sect_i.4.html
+    ds.SOPClassUID = file_meta.get("MediaStorageSOPClassUID")
+    ds.SOPInstanceUID = file_meta.get("MediaStorageSOPInstanceUID")
     ds.SeriesInstanceUID = str(pydicom.uid.generate_uid()).replace(".", "")
     ds.StudyInstanceUID = pydicom.uid.generate_uid()
-    ds.StudyDate = format_date(metadata.get('admit_date', ''))
-    ds.SeriesDate = format_date(metadata.get('admit_date', ''))
-    ds.ContentDate = format_date(metadata.get('acquisition_date', ''))
-    ds.AcquisitionDateTime = format_datetime(metadata.get('acquisition_date', ''), metadata.get('acquisition_time', ''))
-    ds.StudyTime = format_time(metadata.get('admit_time', ''))
-    ds.SeriesTime = format_time(metadata.get('admit_time', ''))
-    ds.ContentTime = format_time(metadata.get('acquisition_time', ''))
+
+    # Add study dates and times with warnings for missing metadata
+    admit_date = metadata.get('admit_date', '')
+    if not admit_date:
+        warnings.warn("The tag 'admit_date' is not in the XML")
+    ds.StudyDate = format_date(admit_date)
+    ds.SeriesDate = format_date(admit_date)
+
+    acquisition_date = metadata.get('acquisition_date', '')
+    if not acquisition_date:
+        warnings.warn("The tag 'acquisition_date' is not in the XML")
+    ds.ContentDate = format_date(acquisition_date)
+    ds.AcquisitionDateTime = format_datetime(acquisition_date, metadata.get('acquisition_time', ''))
+
+    admit_time = metadata.get('admit_time', '')
+    if not admit_time:
+        warnings.warn("The tag 'admit_time' is not in the XML")
+    ds.StudyTime = format_time(admit_time)
+    ds.SeriesTime = format_time(admit_time)
+
+    acquisition_time = metadata.get('acquisition_time', '')
+    if not acquisition_time:
+        warnings.warn("The tag 'acquisition_time' is not in the XML")
+    ds.ContentTime = format_time(acquisition_time)
+
+    # Rest of the metadata with warnings
     ds.AccessionNumber = ''
     ds.Modality = 'ECG'
     ds.Manufacturer = metadata.get('device', 'Unknown')
+    if not metadata.get('device'):
+        warnings.warn("The tag 'device' is not in the XML")
+
     ds.InstitutionName = metadata.get('site', 'Unknown')
-    ds.StudyDescription = 'RestingECG' # Diagnosis -> Modalitiy muss noch gemappt werden
+    if not metadata.get('site'):
+        warnings.warn("The tag 'site' is not in the XML")
+
+    ds.StudyDescription = 'RestingECG'
     ds.ProcedureCodeSequence = [Dataset()]
     ds.ProcedureCodeSequence[0].CodeValue = procedure_code
     ds.ProcedureCodeSequence[0].CodingSchemeDesignator = 'SRT'
     ds.ProcedureCodeSequence[0].CodeMeaning = procedure_meaning
     ds.SeriesDescription = 'RestingECG'
+
     ds.PatientID = metadata.get('patient_id', '')
+    if not metadata.get('patient_id'):
+        warnings.warn("The tag 'patient_id' is not in the XML")
+
     patient_age = metadata.get('patient_age')
+    if not patient_age:
+        warnings.warn("The tag 'patient_age' is not in the XML")
     ds.PatientAge = (patient_age.zfill(3) + 'Y') if patient_age else ''
+
     ds.PatientSex = metadata.get('patient_sex', '')
+    if not metadata.get('patient_sex'):
+        warnings.warn("The tag 'patient_sex' is not in the XML")
+
     ds.PatientName = metadata.get('patient_name', 'Unknown^Patient')
+    if not metadata.get('patient_name'):
+        warnings.warn("The tag 'patient_name' is not in the XML")
+
     ds.PatientBirthDate = format_date(metadata.get('patient_birthdate', ''))
-    # ds.EthnicGroup = 'Undefined'
+    if not metadata.get('patient_birthdate'):
+        warnings.warn("The tag 'patient_birthdate' is not in the XML")
+
     ds.PerformedProcedureStepStartDate = format_date(metadata.get('acquisition_date', ''))
     ds.PerformedProcedureStepStartTime = format_time(metadata.get('acquisition_time', ''))
 
