@@ -218,15 +218,17 @@ def add_annotations(ds, metadata):
         annotation_item.MeasurementUnitsCodeSequence.append(mu_item)
         annotation_group_number += 1
 
-def create_dicom_ecg(data, metadata, output_file, character_set='ISO_IR 192', procedure_code='P2-3120A', procedure_meaning='12 lead ECG'):
-    file_meta = create_file_meta()
-    ds = FileDataset(output_file, {}, file_meta=file_meta, preamble=b"\0" * 128)
-    add_patient_study_info(ds, metadata, file_meta, character_set, procedure_code, procedure_meaning)
-    add_waveform_data(ds, data, metadata)
-    add_annotations(ds, metadata)
-    add_acquisition_context_sequence(ds)
-    ds.save_as(output_file)
-    print(f'DICOM file saved as {output_file}')
+def create_dicom_ecg(data, metadata, output_file):
+    try:
+        file_meta = create_file_meta()
+        ds = FileDataset(output_file, {}, file_meta=file_meta, preamble=b"\0" * 128)
+        add_patient_study_info(ds, metadata, file_meta)
+        add_waveform_data(ds, data, metadata)
+        add_annotations(ds, metadata)
+        ds.save_as(output_file)
+        print(f'DICOM file saved as {output_file}')
+    except Exception as e:
+        raise RuntimeError(f"Error creating DICOM file for {output_file}: {str(e)}")
 
 
 def add_acquisition_context_sequence(ds):
