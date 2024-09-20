@@ -86,7 +86,7 @@ def add_patient_study_info(ds, metadata, file_meta, character_set='ISO_IR 192', 
     # Add study dates and times with warnings for missing metadata
     admit_date = metadata.get('admit_date', '')
     if not admit_date:
-        warnings.warn("The tag 'admit_date' is not in the XML")
+        warnings.warn("The tag 'admit_date' is not in the XML. Used instead the acquisition date")
     ds.StudyDate = format_date(admit_date)
     ds.SeriesDate = format_date(admit_date)
 
@@ -134,8 +134,18 @@ def add_patient_study_info(ds, metadata, file_meta, character_set='ISO_IR 192', 
         warnings.warn("The tag 'patient_age' is not in the XML")
     ds.PatientAge = (patient_age.zfill(3) + 'Y') if patient_age else ''
 
-    ds.PatientSex = metadata.get('patient_sex', '')
-    if not metadata.get('patient_sex'):
+    sex = metadata.get('sex', '')
+    if sex.lower() == "male":
+        sex = 'M'
+    if sex.lower() == "female":
+        sex = 'F'
+    if sex.lower() == "other":
+        sex = 'O'
+    if sex.lower() == "non-binary":
+        sex = 'O'
+
+    ds.PatientSex = sex
+    if not sex:
         warnings.warn("The tag 'patient_sex' is not in the XML")
 
     ds.PatientName = metadata.get('patient_name', 'Unknown^Patient')
@@ -169,6 +179,7 @@ def add_patient_study_info(ds, metadata, file_meta, character_set='ISO_IR 192', 
 
 def add_waveform_data(ds, data, metadata):
     lead_order = ['I', 'II', 'III', 'aVR', 'aVL', 'aVF', 'V1', 'V2', 'V3', 'V4', 'V5', 'V6']
+    code_values = ['2:1', '2:2', '2:61', '2:62', '2:63', '2:64', '2:3', '2:4', '2:5', '2:6', '2:7', '2:8']
     num_samples = len(next(iter(data.values())))
     num_leads = len(lead_order)
 
@@ -195,7 +206,7 @@ def add_waveform_data(ds, data, metadata):
         channel_def_item.WaveformBitsStored = 16
         channel_def_item.ChannelSourceSequence = Sequence([Dataset()])
         source = channel_def_item.ChannelSourceSequence[0]
-        source.CodeValue = f'2:{i + 1}'
+        source.CodeValue = code_values[i]  # Set CodeValue based on the lead
         source.CodingSchemeDesignator = 'MDC'
         source.CodeMeaning = lead_id
         channel_def_item.MeasurementUnitsCodeSequence = Sequence([Dataset()])
