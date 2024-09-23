@@ -98,9 +98,19 @@ def add_patient_study_info(ds, metadata, file_meta, character_set='ISO_IR 192', 
 
     admit_time = metadata.get('admit_time', '')
     if not admit_time:
-        warnings.warn("The tag 'admit_time' is not in the XML")
-    ds.StudyTime = format_time(admit_time)
-    ds.SeriesTime = format_time(admit_time)
+        warnings.warn("The tag 'AdmitTime' is not in the XML. Used instead the acquisition time")
+
+
+    if admit_time != None:
+        ds.StudyTime = format_time(admit_time)
+    else:
+        if not metadata.get('acquisition_time', ''):
+            ds.StudyTime = metadata.get('acquisition_time', '')
+    if admit_time != None: ds.SeriesTime = format_time(admit_time)
+    else:
+        if not metadata.get('acquisition_time', ''):
+            ds.SeriesTime = metadata.get('acquisition_time', '')
+
 
     acquisition_time = metadata.get('acquisition_time', '')
     if not acquisition_time:
@@ -209,11 +219,11 @@ def add_waveform_data(ds, data, metadata):
         source.CodeValue = code_values[i]  # Set CodeValue based on the lead
         source.CodingSchemeDesignator = 'MDC'
         source.CodeMeaning = lead_id
-        channel_def_item.MeasurementUnitsCodeSequence = Sequence([Dataset()])
-        channel_def_item.MeasurementUnitsCodeSequence[0].CodeValue = 'uV'
-        channel_def_item.MeasurementUnitsCodeSequence[0].CodingSchemeDesignator = 'UCUM'
-        channel_def_item.MeasurementUnitsCodeSequence[0].CodingSchemeVersion = '1.4'
-        channel_def_item.MeasurementUnitsCodeSequence[0].CodeMeaning = 'microvolt'
+        #channel_def_item.MeasurementUnitsCodeSequence = Sequence([Dataset()])
+        #channel_def_item.MeasurementUnitsCodeSequence[0].CodeValue = 'uV'
+        #channel_def_item.MeasurementUnitsCodeSequence[0].CodingSchemeDesignator = 'UCUM'
+        #channel_def_item.MeasurementUnitsCodeSequence[0].CodingSchemeVersion = '1.4'
+        #channel_def_item.MeasurementUnitsCodeSequence[0].CodeMeaning = 'microvolt'
 
         lead_filters = metadata.get('lead_filters', {})
         # Adding the channel-specific filter information
@@ -230,12 +240,13 @@ def add_waveform_data(ds, data, metadata):
 
 def add_annotations(ds, metadata):
     ds.WaveformAnnotationSequence = Sequence()
+    measurements = metadata.get('measurements')
     annotation_group_number = 1  # start from 1 for DICOM compliance
 
     for diagnosis in metadata.get('diagnosis', []):
         annotation_item = Dataset()
-        annotation_item.ReferencedWaveformChannels = [1]
-        annotation_item.AnnotationGroupNumber = annotation_group_number
+        annotation_item.ReferencedWaveformChannels = [1,2,3,4,5,6,7,8,9,10,11,12]
+        annotation_item.AnnotationGroupNumber = 0
         annotation_item.UnformattedTextValue = diagnosis
         ds.WaveformAnnotationSequence.append(annotation_item)
         annotation_group_number += 1
@@ -254,21 +265,86 @@ def add_annotations(ds, metadata):
     #     annotation_group_number += 1
 
 
-    for rr in metadata.get('rrintervals', []):
-        annotation_item = Dataset()
-        annotation_item.ReferencedWaveformChannels = [2]
-        annotation_item.AnnotationGroupNumber = annotation_group_number
-        annotation_item.NumericValue = pydicom.valuerep.DSfloat(rr['interval'])
+    create_ecg_annotation(ds, 1, measurements.get('pr_interval'), '2:15872',
+                          'PR interval global',
+                          'ms', 'millisecond', "MDC", "20080927")
 
-        # Measurement Units Code Sequence
-        annotation_item.MeasurementUnitsCodeSequence = Sequence([Dataset()])
-        mu_item = Dataset()
-        mu_item.CodeValue = 'ms'
-        mu_item.CodingSchemeDesignator = 'UCUM'
-        mu_item.CodingSchemeVersion = '1.4'
-        mu_item.CodeMeaning = 'millisecond'
-        annotation_item.MeasurementUnitsCodeSequence.append(mu_item)
-        annotation_group_number += 1
+    # QT interval global
+    create_ecg_annotation(ds, 1, measurements.get('qt_interval'), '2:16160',
+                          'QT interval global',
+                          'ms', 'millisecond', "MDC", "20080927")
+
+    # QRS duration global
+    create_ecg_annotation(ds, 1, measurements.get('qrs_duration'), '2:16156',
+                          'QRS duration global',
+                          'ms', 'millisecond', "MDC", "20080927")
+
+
+    # RR interval global
+    create_ecg_annotation(ds, 1, str(metadata.get('rr_interval')), '2:16168',
+                          'RR interval global',
+                          'ms', 'millisecond', "MDC", "20080927")
+
+    create_ecg_annotation(ds, 1, measurements.get('ventricular_rate', None),
+                          "8867-4", 'Heart rate', '{H.B.}/min',
+                          'Heart beat per minute', "LN", '19971101')
+    create_ecg_annotation(ds, 2, measurements.get('p_axis', None), "8626-4",
+                          'P wave axis', 'deg', 'degree',
+                          "LN",
+                          '19971101')  # LOINC
+    create_ecg_annotation(ds, 2, measurements.get('r_axis', None), "9997-8",
+                          'R wave axis',  'deg', 'degree',
+                          "LN",
+                          '19971101')  # LOINC
+    create_ecg_annotation(ds, 2, measurements.get('t_axis', None), "8638-9",
+                          'T wave axis',  'deg', 'degree',
+                          "LN",
+                          '19971101')  # LOINC
+    create_ecg_annotation(ds, 2, measurements.get('qrs_count', None), "",
+                          'QRS complex count', '{count}',
+                          'count', "SNOMED", '20200901')  # SNOMED
+    create_ecg_annotation(ds, 2, measurements.get('q_onset', None), "102442005",
+                          'Q wave onset', 'ms',
+                          'millisecond', "SNOMED", '20200901')  # SNOMED
+    create_ecg_annotation(ds, 2, measurements.get('q_offset', None), "102445000",
+                          'Q wave offset',  'ms',
+                          'millisecond', "SNOMED", '20200901')  # SNOMED
+    create_ecg_annotation(ds, 2, measurements.get('p_onset', None), "102446001",
+                          'P wave onset',  'ms',
+                          'millisecond', "SNOMED", '20200901')  # SNOMED
+    create_ecg_annotation(ds, 2, measurements.get('p_offset', None), "102447005",
+                          'P wave offset', 'ms',
+                          'millisecond', "SNOMED", '20200901')  # SNOMED
+    create_ecg_annotation(ds, 2, measurements.get('t_offset', None), "102445004",
+                          'T wave offset', 'ms',
+                          'millisecond', "SNOMED", '20200901')  # SNOMED
+def create_ecg_annotation(ds, annotation_group_number, value, code_value, code_meaning, unit_code_value,
+                          unit_code_meaning, codingschemedesignator, codeschemeversion):
+    annotation_item = Dataset()
+    # Reference the correct waveform channels
+    annotation_item.ReferencedWaveformChannels = 0
+    annotation_item.AnnotationGroupNumber = annotation_group_number
+    # Set the numeric value for the interval
+    annotation_item.NumericValue = pydicom.valuerep.DSfloat(value)
+
+    # Define the Measurement Units Code Sequence using the provided units
+    mu_item = Dataset()
+    mu_item.CodeValue = unit_code_value  # Measurement unit code, e.g., 'ms', '{H.B.}/min', 'deg'
+    mu_item.CodingSchemeDesignator = 'UCUM'
+    mu_item.CodingSchemeVersion = "1.4"
+    mu_item.CodeMeaning = unit_code_meaning  # The meaning, e.g., 'millisecond', 'heart beats per minute', 'degrees'
+    annotation_item.MeasurementUnitsCodeSequence = Sequence([mu_item])
+
+    # Define the Concept Name Code Sequence with MDC information
+    conceptnamecodesequence = Dataset()
+    conceptnamecodesequence.CodeValue = code_value  # The specific MDC code
+    conceptnamecodesequence.CodingSchemeDesignator = codingschemedesignator
+    conceptnamecodesequence.CodingSchemeVersion = codeschemeversion
+    conceptnamecodesequence.CodeMeaning = code_meaning  # Description of the interval
+    annotation_item.ConceptNameCodeSequence = Sequence([conceptnamecodesequence])
+
+    # Append to the dataset
+    ds.WaveformAnnotationSequence.append(annotation_item)
 
 def create_dicom_ecg(data, metadata, output_file):
     try:
@@ -276,6 +352,7 @@ def create_dicom_ecg(data, metadata, output_file):
         ds = FileDataset(output_file, {}, file_meta=file_meta, preamble=b"\0" * 128)
         add_patient_study_info(ds, metadata, file_meta)
         add_waveform_data(ds, data, metadata)
+        add_acquisition_context_sequence(ds, metadata)
         add_annotations(ds, metadata)
         ds.save_as(output_file)
         print(f'DICOM file saved as {output_file}')
@@ -283,25 +360,57 @@ def create_dicom_ecg(data, metadata, output_file):
         raise RuntimeError(f"Error creating DICOM file for {output_file}: {str(e)}")
 
 
-def add_acquisition_context_sequence(ds):
+def add_acquisition_context_sequence(ds, metadata):
     # Create the Acquisition Context Sequence
     acq_context_seq = Sequence()
 
-    # First item
+    # First item (Lead System)
     item1 = Dataset()
     item1.ValueType = 'CODE'
+
+    # ConceptNameCodeSequence for Lead System
     item1.ConceptNameCodeSequence = Sequence([Dataset()])
     item1.ConceptNameCodeSequence[0].CodeValue = '10:11345'
     item1.ConceptNameCodeSequence[0].CodingSchemeDesignator = 'MDC'
     item1.ConceptNameCodeSequence[0].CodeMeaning = 'Lead System'
 
-    # Concept Code Sequence
+    # Concept Code Sequence for Standard 12-lead
     item1.ConceptCodeSequence = Sequence([Dataset()])
     item1.ConceptCodeSequence[0].CodeValue = '10:11265'
     item1.ConceptCodeSequence[0].CodingSchemeDesignator = 'MDC'
     item1.ConceptCodeSequence[0].CodeMeaning = 'Standard 12-lead'
 
+    # Append the first item (Lead System) to the sequence
     acq_context_seq.append(item1)
+
+    # Second item (Heart Rate)
+    item2 = Dataset()
+    item2.ValueType = 'NUMERIC'
+
+    # ConceptNameCodeSequence for Heart Rate
+    item2.ConceptNameCodeSequence = Sequence([Dataset()])
+    item2.ConceptNameCodeSequence[0].CodeValue = '8867-4'
+    item2.ConceptNameCodeSequence[0].CodingSchemeDesignator = 'LN'
+    item2.ConceptNameCodeSequence[0].CodingSchemeVersion = '19971101'
+    item2.ConceptNameCodeSequence[0].CodeMeaning = 'Heart rate'
+
+    # Measurement Units Code Sequence for Heart Rate
+    item2.MeasurementUnitsCodeSequence = Sequence([Dataset()])
+    item2.MeasurementUnitsCodeSequence[0].CodeValue = '{H.B.}/min'
+    item2.MeasurementUnitsCodeSequence[0].CodingSchemeDesignator = 'UCUM'
+    item2.MeasurementUnitsCodeSequence[0].CodingSchemeVersion = '1.4'
+    item2.MeasurementUnitsCodeSequence[0].CodeMeaning = 'Heart beat per minute'
+
+    # Set the heart rate value from metadata
+    ventricular_rate = metadata.get('measurements').get('ventricular_rate', None)
+    if ventricular_rate:
+        item2.NumericValue = pydicom.valuerep.DSfloat(ventricular_rate)
+
+    # Referenced waveform channel
+    item2.ReferencedWaveformChannels = [1]
+
+    # Append the second item (Heart Rate) to the sequence
+    acq_context_seq.append(item2)
 
     # Add the sequence to the dataset
     ds.AcquisitionContextSequence = acq_context_seq

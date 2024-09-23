@@ -99,6 +99,8 @@ def extract_muse_xml_data(file_path):
         if order is not None:
             metadata['admit_time'] = order.findtext('AdmitTime')
             metadata['admit_date'] = order.findtext('AdmitDate')
+            metadata['edit_time'] = order.findtext('EditTime')
+            metadata['edit_date'] = order.findtext('EditDate')
 
         if measurements is not None:
             metadata['measurements'] = {
@@ -108,6 +110,15 @@ def extract_muse_xml_data(file_path):
                 'qrs_duration': measurements.findtext('QRSDuration'),
                 'qt_interval': measurements.findtext('QTInterval'),
                 'qt_corrected': measurements.findtext('QTCorrected'),
+                'p_axis': measurements.findtext('PAxis'),
+                'r_axis': measurements.findtext('RAxis'),
+                't_axis': measurements.findtext('TAxis'),
+                'qrs_count': measurements.findtext('QRSCount'),
+                'q_onset': measurements.findtext('QOnset'),
+                'q_offset': measurements.findtext('QOffset'),
+                'p_onset': measurements.findtext('POnset'),
+                'p_offset': measurements.findtext('POffset'),
+                't_offset': measurements.findtext('TOffset')
             }
             metadata['sample_frequency'] = float(measurements.findtext('ECGSampleBase')) * (
                         10 ** float(measurements.findtext('ECGSampleExponent'))) if measurements.findtext(
@@ -126,9 +137,9 @@ def extract_muse_xml_data(file_path):
                 'type': int(qrs.findtext('Type')),
                 'time': int(qrs.findtext('Time'))
             })
-
-        metadata['global_rr'] = int(root.findtext('.//QRSTimesTypes/GlobalRR')) if root.findtext(
+        metadata['rr_interval'] = int(root.findtext('.//QRSTimesTypes/GlobalRR')) if root.findtext(
             './/QRSTimesTypes/GlobalRR') else None
+
         metadata['qtrggr'] = int(root.findtext('.//QRSTimesTypes/QTRGGR')) if root.findtext(
             './/QRSTimesTypes/QTRGGR') else None
 
