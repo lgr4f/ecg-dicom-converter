@@ -361,17 +361,58 @@ def merge_annotations(default_annotations, csv_annotations):
 # Existing code for adding ECG data and annotations (unchanged)...
 
 def create_dicom_ecg(data, metadata, output_file, annotations):
+    ds = None
+    file_meta = None
+
+    # Handle file meta creation
     try:
         file_meta = create_file_meta()
+    except Exception as e:
+        raise RuntimeError(f"Error creating file meta information: {str(e)}")
+
+    # Create the DICOM file dataset
+    try:
         ds = FileDataset(output_file, {}, file_meta=file_meta, preamble=b"\0" * 128)
+    except Exception as e:
+        raise RuntimeError(f"Error creating DICOM dataset: {str(e)}")
+
+    # Add patient and study info
+    try:
         add_patient_study_info(ds, metadata, file_meta)
+    except KeyError as e:
+        raise RuntimeError(f"Missing required patient or study metadata: {str(e)}")
+    except Exception as e:
+        raise RuntimeError(f"Error adding patient/study info: {str(e)}")
+
+    # Add waveform data
+    try:
         add_waveform_data(ds, data, metadata)
+    except KeyError as e:
+        raise RuntimeError(f"Missing required waveform data: {str(e)}")
+    except Exception as e:
+        raise RuntimeError(f"Error adding waveform data: {str(e)}")
+
+    # Add acquisition context
+    try:
         add_acquisition_context_sequence(ds, metadata)
+    except Exception as e:
+        raise RuntimeError(f"Error adding acquisition context sequence: {str(e)}")
+
+    # Add annotations
+    try:
         add_annotations(ds, metadata, annotations)
+    except KeyError as e:
+        raise RuntimeError(f"Missing required annotation data: {str(e)}")
+    except Exception as e:
+        raise RuntimeError(f"Error adding annotations: {str(e)}")
+
+    # Save the DICOM file
+    try:
         ds.save_as(output_file)
         print(f'DICOM file saved as {output_file}')
     except Exception as e:
-        raise RuntimeError(f"Error creating DICOM file for {output_file}: {str(e)}")
+        raise RuntimeError(f"Error saving DICOM file: {str(e)}")
+
 
 def add_annotations(ds, metadata, annotations):
     ds.WaveformAnnotationSequence = Sequence()
