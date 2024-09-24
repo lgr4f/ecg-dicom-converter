@@ -1,0 +1,13 @@
+measurement;code;description;unit;unit_description;scheme;scheme_version
+PRInterval;2:15872;PR interval global;ms;millisecond;MDC;20080927
+QTInterval;2:16160;QT interval global;ms;millisecond;MDC;20080927
+QRSDuration;2:16156;QRS duration global;ms;millisecond;MDC;20080927
+RRInterval;2:16168;RR interval global;ms;millisecond;MDC;20080927
+VentricularRate;8867-4;Heart rate;{H.B.}/min;Heart beat per minute;LN;19971101
+PAxis;8626-4;P wave axis;deg;degree;LN;19971101
+RAxis;9997-8;R wave axis;deg;degree;LN;19971101
+TAxis;8638-9;T wave axis;deg;degree;LN;19971101
+QOnset;5.10.3-3;Q Onset;POINT;POINT;SCPECG;1.3
+POnset;5.10.3-1;P Onset;POINT;POINT;SCPECG;1.3
+QOffset;5.10.3-4;Q Offset;POINT;POINT;SCPECG;1.3
+POffset;5.10.3-2;P Offset;POINT;POINT;SCPECG;1.3

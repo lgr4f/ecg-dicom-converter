@@ -1,3 +1,4 @@
+import csv
 import pydicom
 from pydicom.dataset import Dataset, FileDataset
 from pydicom.sequence import Sequence
@@ -7,6 +8,106 @@ import uuid
 import hashlib
 import socket
 import warnings
+
+DEFAULT_ANNOTATIONS = {
+    "PRInterval": {
+        "code": "2:15872",
+        "description": "PR interval global",
+        "unit": "ms",
+        "unit_description": "millisecond",
+        "scheme": "MDC",
+        "scheme_version": "20080927"
+    },
+    "QTInterval": {
+        "code": "2:16160",
+        "description": "QT interval global",
+        "unit": "ms",
+        "unit_description": "millisecond",
+        "scheme": "MDC",
+        "scheme_version": "20080927"
+    },
+    "QRSDuration": {
+        "code": "2:16156",
+        "description": "QRS duration global",
+        "unit": "ms",
+        "unit_description": "millisecond",
+        "scheme": "MDC",
+        "scheme_version": "20080927"
+    },
+    "RRInterval": {
+        "code": "2:16168",
+        "description": "RR interval global",
+        "unit": "ms",
+        "unit_description": "millisecond",
+        "scheme": "MDC",
+        "scheme_version": "20080927"
+    },
+    "VentricularRate": {
+        "code": "8867-4",
+        "description": "Heart rate",
+        "unit": "{H.B.}/min",
+        "unit_description": "Heart beat per minute",
+        "scheme": "LN",
+        "scheme_version": "19971101"
+    },
+    "PAxis": {
+        "code": "8626-4",
+        "description": "P wave axis",
+        "unit": "deg",
+        "unit_description": "degree",
+        "scheme": "LN",
+        "scheme_version": "19971101"
+    },
+    "RAxis": {
+        "code": "9997-8",
+        "description": "R wave axis",
+        "unit": "deg",
+        "unit_description": "degree",
+        "scheme": "LN",
+        "scheme_version": "19971101"
+    },
+    "TAxis": {
+        "code": "8638-9",
+        "description": "T wave axis",
+        "unit": "deg",
+        "unit_description": "degree",
+        "scheme": "LN",
+        "scheme_version": "19971101"
+    },
+    "QOnset": {
+        "code": "5.10.3-3",
+        "description": "Q Onset",
+        "unit": "POINT",
+        "unit_description": "POINT",
+        "scheme": "SCPECG",
+        "scheme_version": "1.3"
+    },
+    "POnset": {
+        "code": "5.10.3-1",
+        "description": "P Onset",
+        "unit": "POINT",
+        "unit_description": "POINT",
+        "scheme": "SCPECG",
+        "scheme_version": "1.3"
+    },
+    "QOffset": {
+        "code": "5.10.3-4",
+        "description": "Q Offset",
+        "unit": "POINT",
+        "unit_description": "POINT",
+        "scheme": "SCPECG",
+        "scheme_version": "1.3"
+    },
+    "POffset": {
+        "code": "5.10.3-2",
+        "description": "P Offset",
+        "unit": "POINT",
+        "unit_description": "POINT",
+        "scheme": "SCPECG",
+        "scheme_version": "1.3"
+    }
+}
+
 
 def generate_implementation_uid():
     # MAC-adress of computer
@@ -84,49 +185,48 @@ def add_patient_study_info(ds, metadata, file_meta, character_set='ISO_IR 192', 
     ds.StudyInstanceUID = pydicom.uid.generate_uid()
 
     # Add study dates and times with warnings for missing metadata
-    admit_date = metadata.get('admit_date', '')
-    if not admit_date:
-        warnings.warn("The tag 'admit_date' is not in the XML. Used instead the acquisition date")
-    ds.StudyDate = format_date(admit_date)
-    ds.SeriesDate = format_date(admit_date)
+    AdmitDate = metadata.get('AdmitDate', '')
+    if not AdmitDate:
+        warnings.warn("The tag 'AdmitDate' is not in the XML. Used instead the acquisition date. Used instead the acquisition date (ecg recording) for the DICOM Tag Study and Series date.")
+    ds.StudyDate = format_date(AdmitDate)
+    ds.SeriesDate = format_date(AdmitDate)
 
-    acquisition_date = metadata.get('acquisition_date', '')
-    if not acquisition_date:
-        warnings.warn("The tag 'acquisition_date' is not in the XML")
-    ds.ContentDate = format_date(acquisition_date)
-    ds.AcquisitionDateTime = format_datetime(acquisition_date, metadata.get('acquisition_time', ''))
+    AcquisitionDate = metadata.get('AcquisitionDate', '')
+    if not AcquisitionDate:
+        warnings.warn("The tag 'AcquisitionDate' is not in the XML")
+    ds.ContentDate = format_date(AcquisitionDate)
+    ds.AcquisitionDateTime = format_datetime(AcquisitionDate, metadata.get('AcquisitionTime', ''))
 
-    admit_time = metadata.get('admit_time', '')
-    if not admit_time:
-        warnings.warn("The tag 'AdmitTime' is not in the XML. Used instead the acquisition time")
+    AdmitTime = metadata.get('AdmitTime', '')
+    if not AdmitTime:
+        warnings.warn("The tag 'AdmitTime' is not in the XML. Used instead the acquisition time (ecg recording) for the DICOM Tag Study and Series time.")
 
-
-    if admit_time != None:
-        ds.StudyTime = format_time(admit_time)
+    if AdmitTime:
+        ds.StudyTime = format_time(AdmitTime)
     else:
-        if not metadata.get('acquisition_time', ''):
-            ds.StudyTime = metadata.get('acquisition_time', '')
-    if admit_time != None: ds.SeriesTime = format_time(admit_time)
+        if not metadata.get('AcquisitionTime', ''):
+            ds.StudyTime = metadata.get('AcquisitionTime', '')
+    if AdmitTime:
+        ds.SeriesTime = format_time(AdmitTime)
     else:
-        if not metadata.get('acquisition_time', ''):
-            ds.SeriesTime = metadata.get('acquisition_time', '')
+        if not metadata.get('AcquisitionTime', ''):
+            ds.SeriesTime = metadata.get('AcquisitionTime', '')
 
-
-    acquisition_time = metadata.get('acquisition_time', '')
-    if not acquisition_time:
-        warnings.warn("The tag 'acquisition_time' is not in the XML")
-    ds.ContentTime = format_time(acquisition_time)
+    AcquisitionTime = metadata.get('AcquisitionTime', '')
+    if not AcquisitionTime:
+        warnings.warn("The tag 'AcquisitionTime' is not in the XML")
+    ds.ContentTime = format_time(AcquisitionTime)
 
     # Rest of the metadata with warnings
     ds.AccessionNumber = ''
     ds.Modality = 'ECG'
-    ds.Manufacturer = metadata.get('device', 'Unknown')
-    if not metadata.get('device'):
-        warnings.warn("The tag 'device' is not in the XML")
+    ds.Manufacturer = metadata.get('AcquisitionDevice', 'Unknown')
+    if not metadata.get('AcquisitionDevice'):
+        warnings.warn("The tag 'AcquisitionDevice' is not in the XML")
 
-    ds.InstitutionName = metadata.get('site', 'Unknown')
-    if not metadata.get('site'):
-        warnings.warn("The tag 'site' is not in the XML")
+    ds.InstitutionName = metadata.get('SiteName', 'Unknown')
+    if not metadata.get('SiteName'):
+        warnings.warn("The tag 'SiteName' is not in the XML")
 
     ds.StudyDescription = 'RestingECG'
     ds.ProcedureCodeSequence = [Dataset()]
@@ -135,56 +235,52 @@ def add_patient_study_info(ds, metadata, file_meta, character_set='ISO_IR 192', 
     ds.ProcedureCodeSequence[0].CodeMeaning = procedure_meaning
     ds.SeriesDescription = 'RestingECG'
 
-    ds.PatientID = metadata.get('patient_id', '')
-    if not metadata.get('patient_id'):
-        warnings.warn("The tag 'patient_id' is not in the XML")
+    ds.PatientID = metadata.get('PatientID', '')
+    if not metadata.get('PatientID'):
+        warnings.warn("The tag 'PatientID' is not in the XML")
 
-    patient_age = metadata.get('patient_age')
-    if not patient_age:
-        warnings.warn("The tag 'patient_age' is not in the XML")
-    ds.PatientAge = (patient_age.zfill(3) + 'Y') if patient_age else ''
+    PatientAge = metadata.get('PatientAge')
+    if not PatientAge:
+        warnings.warn("The tag 'PatientAge' is not in the XML")
+    ds.PatientAge = (PatientAge.zfill(3) + 'Y') if PatientAge else ''
 
-    sex = metadata.get('sex', '')
-    if sex.lower() == "male":
-        sex = 'M'
-    if sex.lower() == "female":
-        sex = 'F'
-    if sex.lower() == "other":
-        sex = 'O'
-    if sex.lower() == "non-binary":
-        sex = 'O'
+    Sex = metadata.get('Gender', '')
+    if Sex.lower() == "male":
+        Sex = 'M'
+    if Sex.lower() == "female":
+        Sex = 'F'
+    if Sex.lower() == "other" or Sex.lower() == "non-binary":
+        Sex = 'O'
 
-    ds.PatientSex = sex
-    if not sex:
-        warnings.warn("The tag 'patient_sex' is not in the XML")
+    ds.PatientSex = Sex
+    if not Sex:
+        warnings.warn("The tag 'Gender' is not in the XML")
 
-    ds.PatientName = metadata.get('patient_name', 'Unknown^Patient')
-    if not metadata.get('patient_name'):
-        warnings.warn("The tag 'patient_name' is not in the XML")
+    ds.PatientName = metadata.get('PatientName', 'Unknown^Patient')
+    if not metadata.get('PatientName'):
+        warnings.warn("The tags of the patient names are not in the XML")
 
-    ds.PatientBirthDate = format_date(metadata.get('patient_birthdate', ''))
-    if not metadata.get('patient_birthdate'):
-        warnings.warn("The tag 'patient_birthdate' is not in the XML")
+    ds.PatientBirthDate = format_date(metadata.get('DateofBirth', ''))
+    if not metadata.get('DateofBirth'):
+        warnings.warn("The tag 'DateofBirth' is not in the XML")
 
-    ds.PerformedProcedureStepStartDate = format_date(metadata.get('acquisition_date', ''))
-    ds.PerformedProcedureStepStartTime = format_time(metadata.get('acquisition_time', ''))
+    ds.PerformedProcedureStepStartDate = format_date(metadata.get('AcquisitionDate', ''))
+    ds.PerformedProcedureStepStartTime = format_time(metadata.get('AcquisitionTime', ''))
 
     # Additional measurements (if needed)
-    measurements = metadata.get('measurements', {})
+    Measurements = metadata.get('Measurements', {})
     ds.add_new((0x0040, 0x0275), 'SQ', Sequence())
     item = Dataset()
     item.CodeValue = '8867-4'
     item.CodingSchemeDesignator = 'LN'
     item.CodeMeaning = 'Ventricular rate'
     item.MeasuredValueSequence = [Dataset()]
-    item.MeasuredValueSequence[0].NumericValue = measurements.get('ventricular_rate', '')
+    item.MeasuredValueSequence[0].NumericValue = Measurements.get('VentricularRate', '')
     item.MeasuredValueSequence[0].MeasurementUnitsCodeSequence = [Dataset()]
     item.MeasuredValueSequence[0].MeasurementUnitsCodeSequence[0].CodeValue = 'uV'
     item.MeasuredValueSequence[0].MeasurementUnitsCodeSequence[0].CodingSchemeDesignator = 'UCUM'
-    item.MeasuredValueSequence[0].MeasurementUnitsCodeSequence[0].CodeMeaning = 'microvolt'
+    item.MeasuredValueSequence[0].CodeMeaning = 'microvolt'
     ds[0x0040, 0x0275].value.append(item)
-
-    # Add other measurements similarly if needed...
 
 
 def add_waveform_data(ds, data, metadata):
@@ -202,7 +298,7 @@ def add_waveform_data(ds, data, metadata):
     waveform_item.WaveformOriginality = 'ORIGINAL'
     waveform_item.NumberOfWaveformChannels = num_leads
     waveform_item.NumberOfWaveformSamples = num_samples
-    waveform_item.SamplingFrequency = metadata.get('sample_frequency', '')
+    waveform_item.SamplingFrequency = metadata.get('SampleFrequency', '')
     waveform_item.WaveformBitsAllocated = 16
     waveform_item.WaveformSampleInterpretation = 'SS'
     waveform_data = np.zeros((num_samples, num_leads))
@@ -225,7 +321,7 @@ def add_waveform_data(ds, data, metadata):
         #channel_def_item.MeasurementUnitsCodeSequence[0].CodingSchemeVersion = '1.4'
         #channel_def_item.MeasurementUnitsCodeSequence[0].CodeMeaning = 'microvolt'
 
-        lead_filters = metadata.get('lead_filters', {})
+        lead_filters = metadata.get('LeadFilters', {})
         # Adding the channel-specific filter information
         channel_def_item.FilterLowFrequency = lead_filters.get(lead_id, {}).get('HighPassFilter', '0')
         channel_def_item.FilterHighFrequency = lead_filters.get(lead_id, {}).get('LowPassFilter', '0')
@@ -238,10 +334,48 @@ def add_waveform_data(ds, data, metadata):
     ds.WaveformSequence.append(waveform_item)
 
 
-def add_annotations(ds, metadata):
+
+def load_annotations_from_csv(csv_file):
+    """Load annotations from a CSV file."""
+    annotations = {}
+    with open(csv_file, mode='r') as file:
+        reader = csv.DictReader(file, delimiter=';')
+        for row in reader:
+            measurement = row["measurement"]
+            annotations[measurement] = {
+                "code": row["code"],
+                "description": row["description"],
+                "unit": row["unit"],
+                "unit_description": row["unit_description"],
+                "scheme": row["scheme"],
+                "scheme_version": row["scheme_version"],
+            }
+    return annotations
+
+def merge_annotations(default_annotations, csv_annotations):
+    """Merge CSV annotations with the default ones. CSV annotations override or add new measurements."""
+    updated_annotations = default_annotations.copy()
+    updated_annotations.update(csv_annotations)
+    return updated_annotations
+
+# Existing code for adding ECG data and annotations (unchanged)...
+
+def create_dicom_ecg(data, metadata, output_file, annotations):
+    try:
+        file_meta = create_file_meta()
+        ds = FileDataset(output_file, {}, file_meta=file_meta, preamble=b"\0" * 128)
+        add_patient_study_info(ds, metadata, file_meta)
+        add_waveform_data(ds, data, metadata)
+        add_acquisition_context_sequence(ds, metadata)
+        add_annotations(ds, metadata, annotations)
+        ds.save_as(output_file)
+        print(f'DICOM file saved as {output_file}')
+    except Exception as e:
+        raise RuntimeError(f"Error creating DICOM file for {output_file}: {str(e)}")
+
+def add_annotations(ds, metadata, annotations):
     ds.WaveformAnnotationSequence = Sequence()
-    measurements = metadata.get('measurements')
-    annotation_group_number = 1  # start from 1 for DICOM compliance
+    measurements = metadata.get('measurements', {})
 
     for diagnosis in metadata.get('diagnosis', []):
         annotation_item = Dataset()
@@ -249,75 +383,45 @@ def add_annotations(ds, metadata):
         annotation_item.AnnotationGroupNumber = 0
         annotation_item.UnformattedTextValue = diagnosis
         ds.WaveformAnnotationSequence.append(annotation_item)
-        annotation_group_number += 1
-
-    # Add QRSTimes annotations
-    # for qrs in metadata.get('qrstimes', []):
-    #     annotation_item = Dataset()
-    #     annotation_item.ReferencedWaveformChannels = [1]
-    #     annotation_item.AnnotationGroupNumber = annotation_group_number
-    #     annotation_item.ObservationDateTime = pydicom.valuerep.DT(qrs['time'])
-    #     annotation_item.ConceptNameCodeSequence = Sequence([Dataset()])
-    #     annotation_item.ConceptNameCodeSequence[0].CodeValue = 'QRS'
-    #     annotation_item.ConceptNameCodeSequence[0].CodingSchemeDesignator = 'DCM'
-    #     annotation_item.ConceptNameCodeSequence[0].CodeMeaning = 'QRS complex'
-    #     ds.WaveformAnnotationSequence.append(annotation_item)
-    #     annotation_group_number += 1
 
 
-    create_ecg_annotation(ds, 1, measurements.get('pr_interval'), '2:15872',
-                          'PR interval global',
-                          'ms', 'millisecond', "MDC", "20080927")
+    for measurement, annotation in annotations.items():
+        if measurement in measurements:
+            create_ecg_annotation(
+                ds,
+                1,  # Annotation group number
+                measurements[measurement],
+                annotation["code"],
+                annotation["description"],
+                annotation["unit"],
+                annotation["unit_description"],
+                annotation["scheme"],
+                annotation["scheme_version"]
+            )
 
-    # QT interval global
-    create_ecg_annotation(ds, 1, measurements.get('qt_interval'), '2:16160',
-                          'QT interval global',
-                          'ms', 'millisecond', "MDC", "20080927")
+def create_ecg_annotation(ds, annotation_group_number, value, code_value, code_meaning, unit_code_value,
+                          unit_code_meaning, codingschemedesignator, codeschemeversion):
+    annotation_item = Dataset()
+    annotation_item.AnnotationGroupNumber = annotation_group_number
+    annotation_item.NumericValue = pydicom.valuerep.DSfloat(value)
 
-    # QRS duration global
-    create_ecg_annotation(ds, 1, measurements.get('qrs_duration'), '2:16156',
-                          'QRS duration global',
-                          'ms', 'millisecond', "MDC", "20080927")
+    # Define the Measurement Units Code Sequence using the provided units
+    mu_item = Dataset()
+    mu_item.CodeValue = unit_code_value
+    mu_item.CodingSchemeDesignator = 'UCUM'
+    mu_item.CodingSchemeVersion = "1.4"
+    mu_item.CodeMeaning = unit_code_meaning
+    annotation_item.MeasurementUnitsCodeSequence = Sequence([mu_item])
 
+    # Define the Concept Name Code Sequence with MDC information
+    conceptnamecodesequence = Dataset()
+    conceptnamecodesequence.CodeValue = code_value
+    conceptnamecodesequence.CodingSchemeDesignator = codingschemedesignator
+    conceptnamecodesequence.CodingSchemeVersion = codeschemeversion
+    conceptnamecodesequence.CodeMeaning = code_meaning
+    annotation_item.ConceptNameCodeSequence = Sequence([conceptnamecodesequence])
 
-    # RR interval global
-    create_ecg_annotation(ds, 1, str(metadata.get('rr_interval')), '2:16168',
-                          'RR interval global',
-                          'ms', 'millisecond', "MDC", "20080927")
-
-    create_ecg_annotation(ds, 1, measurements.get('ventricular_rate', None),
-                          "8867-4", 'Heart rate', '{H.B.}/min',
-                          'Heart beat per minute', "LN", '19971101')
-    create_ecg_annotation(ds, 2, measurements.get('p_axis', None), "8626-4",
-                          'P wave axis', 'deg', 'degree',
-                          "LN",
-                          '19971101')  # LOINC
-    create_ecg_annotation(ds, 2, measurements.get('r_axis', None), "9997-8",
-                          'R wave axis',  'deg', 'degree',
-                          "LN",
-                          '19971101')  # LOINC
-    create_ecg_annotation(ds, 2, measurements.get('t_axis', None), "8638-9",
-                          'T wave axis',  'deg', 'degree',
-                          "LN",
-                          '19971101')  # LOINC
-    create_ecg_annotation(ds, 2, measurements.get('qrs_count', None), "",
-                          'QRS complex count', '{count}',
-                          'count', "SNOMED", '20200901')  # SNOMED
-    create_ecg_annotation(ds, 2, measurements.get('q_onset', None), "102442005",
-                          'Q wave onset', 'ms',
-                          'millisecond', "SNOMED", '20200901')  # SNOMED
-    create_ecg_annotation(ds, 2, measurements.get('q_offset', None), "102445000",
-                          'Q wave offset',  'ms',
-                          'millisecond', "SNOMED", '20200901')  # SNOMED
-    create_ecg_annotation(ds, 2, measurements.get('p_onset', None), "102446001",
-                          'P wave onset',  'ms',
-                          'millisecond', "SNOMED", '20200901')  # SNOMED
-    create_ecg_annotation(ds, 2, measurements.get('p_offset', None), "102447005",
-                          'P wave offset', 'ms',
-                          'millisecond', "SNOMED", '20200901')  # SNOMED
-    create_ecg_annotation(ds, 2, measurements.get('t_offset', None), "102445004",
-                          'T wave offset', 'ms',
-                          'millisecond', "SNOMED", '20200901')  # SNOMED
+    ds.WaveformAnnotationSequence.append(annotation_item)
 def create_ecg_annotation(ds, annotation_group_number, value, code_value, code_meaning, unit_code_value,
                           unit_code_meaning, codingschemedesignator, codeschemeversion):
     annotation_item = Dataset()
@@ -345,19 +449,6 @@ def create_ecg_annotation(ds, annotation_group_number, value, code_value, code_m
 
     # Append to the dataset
     ds.WaveformAnnotationSequence.append(annotation_item)
-
-def create_dicom_ecg(data, metadata, output_file):
-    try:
-        file_meta = create_file_meta()
-        ds = FileDataset(output_file, {}, file_meta=file_meta, preamble=b"\0" * 128)
-        add_patient_study_info(ds, metadata, file_meta)
-        add_waveform_data(ds, data, metadata)
-        add_acquisition_context_sequence(ds, metadata)
-        add_annotations(ds, metadata)
-        ds.save_as(output_file)
-        print(f'DICOM file saved as {output_file}')
-    except Exception as e:
-        raise RuntimeError(f"Error creating DICOM file for {output_file}: {str(e)}")
 
 
 def add_acquisition_context_sequence(ds, metadata):

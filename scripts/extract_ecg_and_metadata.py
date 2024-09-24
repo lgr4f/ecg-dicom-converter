@@ -9,10 +9,10 @@ def extract_wfdb_data(file_path):
     record = wfdb.rdrecord(file_path[:-4])
     data = record.p_signal
     metadata = {
-        'patient_name': record.comments[0].split(': ')[1] if 'Patient' in record.comments[0] else 'Unknown^Patient',
-        'patient_id': record.comments[1].split(': ')[1] if 'ID' in record.comments[1] else 'Unknown',
-        'patient_age': None,
-        'patient_sex': None
+        'PatientName': record.comments[0].split(': ')[1] if 'Patient' in record.comments[0] else 'Unknown^Patient',
+        'PatientID': record.comments[1].split(': ')[1] if 'ID' in record.comments[1] else 'Unknown',
+        'PatientAge': None,
+        'Gender': None
     }
     return data, metadata
 
@@ -77,50 +77,51 @@ def extract_muse_xml_data(file_path):
         measurements = root.find('.//RestingECGMeasurements')
 
         metadata = {
-            'patient_id': patient.findtext('PatientID'),
-            'lead_filters': lead_filters
+            'PatientID': patient.findtext('PatientID'),
+            'LeadFilters': lead_filters
         }
 
         if patient is not None:
-            metadata['patient_name'] = (
+            metadata['PatientName'] = (
                         patient.findtext('PatientLastName') + '^' + patient.findtext('PatientFirstName')).strip(
                 '^') if patient.findtext('PatientLastName') and patient.findtext('PatientFirstName') else None
-            metadata['patient_age'] = patient.findtext('PatientAge')
-            metadata['patient_sex'] = patient.findtext('Gender')
-            metadata['patient_birthdate'] = patient.findtext('DateofBirth')
+            metadata['PatientAge'] = patient.findtext('PatientAge')
+            metadata['Gender'] = patient.findtext('Gender')
+            metadata['DateofBirth'] = patient.findtext('DateofBirth')
 
         if test is not None:
-            metadata['acquisition_date'] = test.findtext('AcquisitionDate')
-            metadata['acquisition_time'] = test.findtext('AcquisitionTime')
-            metadata['device'] = test.findtext('AcquisitionDevice')
-            metadata['site'] = test.findtext('SiteName')
+            metadata['AcquisitionDate'] = test.findtext('AcquisitionDate')
+            metadata['AcquisitionTime'] = test.findtext('AcquisitionTime')
+            metadata['AcquisitionDevice'] = test.findtext('AcquisitionDevice')
+            metadata['SiteName'] = test.findtext('SiteName')
 
         # needs a connetion to the HIS for the information
         if order is not None:
-            metadata['admit_time'] = order.findtext('AdmitTime')
-            metadata['admit_date'] = order.findtext('AdmitDate')
-            metadata['edit_time'] = order.findtext('EditTime')
-            metadata['edit_date'] = order.findtext('EditDate')
+            metadata['AdmitTime'] = order.findtext('AdmitTime')
+            metadata['AdmitDate'] = order.findtext('AdmitDate')
+            metadata['EditTime'] = order.findtext('EditTime')
+            metadata['EditDate'] = order.findtext('EditDate')
 
         if measurements is not None:
             metadata['measurements'] = {
-                'ventricular_rate': measurements.findtext('VentricularRate'),
-                'atrial_rate': measurements.findtext('AtrialRate'),
-                'pr_interval': measurements.findtext('PRInterval'),
-                'qrs_duration': measurements.findtext('QRSDuration'),
-                'qt_interval': measurements.findtext('QTInterval'),
-                'qt_corrected': measurements.findtext('QTCorrected'),
-                'p_axis': measurements.findtext('PAxis'),
-                'r_axis': measurements.findtext('RAxis'),
-                't_axis': measurements.findtext('TAxis'),
-                'qrs_count': measurements.findtext('QRSCount'),
-                'q_onset': measurements.findtext('QOnset'),
-                'q_offset': measurements.findtext('QOffset'),
-                'p_onset': measurements.findtext('POnset'),
-                'p_offset': measurements.findtext('POffset'),
-                't_offset': measurements.findtext('TOffset')
+                'VentricularRate': measurements.findtext('VentricularRate'),
+                'AtrialRate': measurements.findtext('AtrialRate'),
+                'PRInterval': measurements.findtext('PRInterval'),
+                'QRSDuration': measurements.findtext('QRSDuration'),
+                'QTInterval': measurements.findtext('QTInterval'),
+                'QTCorrected': measurements.findtext('QTCorrected'),
+                'PAxis': measurements.findtext('PAxis'),
+                'RAxis': measurements.findtext('RAxis'),
+                'TAxis': measurements.findtext('TAxis'),
+                'QRSCount': measurements.findtext('QRSCount'),
+                'QOnset': measurements.findtext('QOnset'),
+                'QOffset': measurements.findtext('QOffset'),
+                'POnset': measurements.findtext('POnset'),
+                'POffset': measurements.findtext('POffset'),
+                'TOffset': measurements.findtext('TOffset')
             }
-            metadata['sample_frequency'] = float(measurements.findtext('ECGSampleBase')) * (
+
+            metadata['SampleFrequency'] = float(measurements.findtext('ECGSampleBase')) * (
                         10 ** float(measurements.findtext('ECGSampleExponent'))) if measurements.findtext(
                 'ECGSampleBase') and measurements.findtext('ECGSampleExponent') else None
 
@@ -130,14 +131,14 @@ def extract_muse_xml_data(file_path):
             if text:
                 metadata['diagnosis'].append(text.strip())
 
-        metadata['qrstimes'] = []
+        metadata['QRSTimes'] = []
         for qrs in root.findall('.//QRSTimesTypes/QRS'):
-            metadata['qrstimes'].append({
+            metadata['QRSTimes'].append({
                 'number': int(qrs.findtext('Number')),
                 'type': int(qrs.findtext('Type')),
                 'time': int(qrs.findtext('Time'))
             })
-        metadata['rr_interval'] = int(root.findtext('.//QRSTimesTypes/GlobalRR')) if root.findtext(
+        metadata['RRInterval'] = int(root.findtext('.//QRSTimesTypes/GlobalRR')) if root.findtext(
             './/QRSTimesTypes/GlobalRR') else None
 
         metadata['qtrggr'] = int(root.findtext('.//QRSTimesTypes/QTRGGR')) if root.findtext(

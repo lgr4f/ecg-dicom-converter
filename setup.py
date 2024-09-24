@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='ecg-dicom-converter',
-    version='0.1.1',
+    version='0.2.1',
     packages=find_packages(),
     install_requires=[
         'wfdb>=3.3.0',
@@ -19,7 +19,7 @@ setup(
     description='A package for extracting ECG data and converting it to DICOM format.',
     long_description=open('README.md').read(),
     long_description_content_type='text/markdown',
-    url='https://your-repo-url.com',
+    url='https://gitlab.gwdg.de/medinfpub/mi-xnat/extensions/clients/ecg-dicom-converter',
     classifiers=[
         'Programming Language :: Python :: 3',
         'License :: OSI Approved :: MIT License',
