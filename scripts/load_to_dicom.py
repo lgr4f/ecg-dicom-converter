@@ -420,11 +420,24 @@ def add_annotations(ds, metadata, annotations):
 
     for diagnosis in metadata.get('diagnosis', []):
         annotation_item = Dataset()
-        annotation_item.ReferencedWaveformChannels = [1,2,3,4,5,6,7,8,9,10,11,12]
+        annotation_item.ReferencedWaveformChannels = [1,0]
         annotation_item.AnnotationGroupNumber = 0
         annotation_item.UnformattedTextValue = diagnosis
         ds.WaveformAnnotationSequence.append(annotation_item)
 
+    if metadata.get('RRInterval'):
+        annotation_rrinterval = annotations["RRInterval"]
+        create_ecg_annotation(
+            ds,
+            1,  # Annotation group number
+            metadata.get('RRInterval'),
+            annotation_rrinterval["code"],
+            annotation_rrinterval["description"],
+            annotation_rrinterval["unit"],
+            annotation_rrinterval["unit_description"],
+            annotation_rrinterval["scheme"],
+            annotation_rrinterval["scheme_version"]
+        )
 
     for measurement, annotation in annotations.items():
         if measurement in measurements:
