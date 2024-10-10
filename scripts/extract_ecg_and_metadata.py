@@ -3,7 +3,10 @@ import xml.etree.ElementTree as ET
 import base64
 import struct
 import numpy as np
-
+import sys
+import time
+import csv
+import os
 
 def extract_wfdb_data(file_path):
     record = wfdb.rdrecord(file_path[:-4])
@@ -158,4 +161,44 @@ def extract_data(file_path):
         else:
             raise ValueError(f"Unsupported file format in {file_path}. Please provide a WFDB (.hea) or Muse XML (.xml) file.")
     except Exception as e:
+        raise ValueError(f"Error extracting data from {file_path}: {str(e)}")
+
+
+def extract_data(file_path):
+    performance_log_path = os.path.join(os.path.dirname(file_path), '../performance.csv')
+
+    # Initialize the CSV file with headers if it doesn't exist
+    if not os.path.exists(performance_log_path):
+        with open(performance_log_path, mode='w', newline='') as file:
+            writer = csv.writer(file, delimiter=";")
+            writer.writerow(["Filename", "Dateigröße (Kilobytes)", "Zeit XML lesen/DICOM schreiben/Overall", "Status"])
+
+    try:
+        file_size = (str(os.path.getsize(file_path)/1024)).replace('.', ',')  # Get file size in kilobytes
+        start_time = time.time()
+        if file_path.endswith('.xml'):
+            # Measure XML read time
+            muse_xml_data = extract_muse_xml_data(file_path)  # Assuming extract_muse_xml_data is defined
+            xml_read_time = (time.time() - start_time) * 1000  # in ms
+            xml_read_time = str(xml_read_time).replace('.', ',')  # Change decimal separator from . to ,
+
+            # Log successful performance to CSV
+            with open(performance_log_path, mode='a', newline='') as file:
+                writer = csv.writer(file, delimiter=";")
+                writer.writerow([file_path, file_size, xml_read_time, "Erfolgreich"])
+
+            return muse_xml_data
+
+        elif file_path.endswith('.hea'):
+            return extract_wfdb_data(file_path)  # Assuming extract_wfdb_data is defined
+        else:
+            raise ValueError(
+                f"Unsupported file format in {file_path}. Please provide a WFDB (.hea) or Muse XML (.xml) file.")
+
+    except Exception as e:
+        # Log failure to CSV
+        with open(performance_log_path, mode='a', newline='') as file:
+            writer = csv.writer(file, delimiter=";")
+            writer.writerow([file_path, "-", "-", "-", "Konvertierung fehlgeschlagen"])
+
         raise ValueError(f"Error extracting data from {file_path}: {str(e)}")

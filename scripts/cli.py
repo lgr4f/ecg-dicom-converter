@@ -1,9 +1,9 @@
 import argparse
 import os
-from pathlib import Path
+import csv
 from .extract_ecg_and_metadata import extract_data
 from .load_to_dicom import create_dicom_ecg, DEFAULT_ANNOTATIONS, load_annotations_from_csv, merge_annotations
-
+import time
 class AnnotationsFileNotFoundError(Exception):
     pass
 
@@ -52,10 +52,17 @@ def main():
             for file in files:
                 if file.endswith('.hea') or file.endswith('.xml'):
                     input_file_path = os.path.join(root, file)
+                    performance_log_path = os.path.join(os.path.dirname(input_file_path), '../performance.csv')
                     try:
+                        start_time = time.time()
                         process_file(input_file_path, args.output_dir, annotations)
+                        elapsed_time = (time.time() - start_time) * 1000  # Time in milliseconds
+                        elapsed_time = str(elapsed_time).replace('.', ',')
+                        log_performance(performance_log_path, "Overall time. Corresponding XML: " + input_file_path, "-", elapsed_time, "Erfolgreich")
                     except Exception:
                         print(f"Skipping file {input_file_path} due to error.")
+                        log_performance(performance_log_path,"Overall time. Corresponding XML: " + input_file_path, "-", "-",
+                                        "Fehlgeschlagen")
     else:
         if not os.path.isfile(args.input):
             print(f"Error: {args.input} is not a valid file")
@@ -64,6 +71,12 @@ def main():
             process_file(args.input, args.output_dir, annotations)
         except Exception:
             print(f"Skipping file {args.input} due to error.")
+
+def log_performance(performance_log_path, filename, file_size, overall_time, status):
+    """Helper function to log performance to the CSV file."""
+    with open(performance_log_path, mode='a', newline='') as file:
+        writer = csv.writer(file, delimiter=';')
+        writer.writerow([filename, file_size, overall_time, status])
 
 if __name__ == '__main__':
     main()
