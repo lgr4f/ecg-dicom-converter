@@ -421,7 +421,7 @@ def add_annotations(ds, metadata, annotations):
 
     for diagnosis in metadata.get('diagnosis', []):
         annotation_item = Dataset()
-        annotation_item.ReferencedWaveformChannels = [1,0]
+        annotation_item.ReferencedWaveformChannels = 0
         annotation_item.AnnotationGroupNumber = 0
         annotation_item.UnformattedTextValue = diagnosis
         ds.WaveformAnnotationSequence.append(annotation_item)
@@ -551,9 +551,6 @@ def add_acquisition_context_sequence(ds, metadata):
     ventricular_rate = metadata.get('measurements').get('ventricular_rate', None)
     if ventricular_rate:
         item2.NumericValue = pydicom.valuerep.DSfloat(ventricular_rate)
-
-    # Referenced waveform channel
-    item2.ReferencedWaveformChannels = [1]
 
     # Append the second item (Heart Rate) to the sequence
     acq_context_seq.append(item2)
