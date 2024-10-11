@@ -9,20 +9,26 @@ def count_error_categories(errors):
         'missing': 0,
         'unexpected': 0,
         'conflicting': 0,
-        'other': 0
+        'other': 0,
+        'empty': 0  # Neue Kategorie 'empty'
     }
 
-    for file_path, error_details in errors.items():
-        for section, tags in error_details.items():
-            for error_message in tags:
-                if 'missing' in error_message.lower():
-                    error_counts['missing'] += 1
-                elif 'unexpected' in error_message.lower():
-                    error_counts['unexpected'] += 1
-                elif 'conflicting' in error_message.lower():
-                    error_counts['conflicting'] += 1
-                else:
-                    error_counts['other'] += 1
+    if not errors:  # Wenn keine Fehler gefunden wurden
+        error_counts['empty'] = 1
+    else:
+        for file_path, error_details in errors.items():
+            for section, tags in error_details.items():
+                for error_message in tags:
+                    if 'missing' in error_message.lower():
+                        error_counts['missing'] += 1
+                    elif 'unexpected' in error_message.lower():
+                        error_counts['unexpected'] += 1
+                    elif 'conflicting' in error_message.lower():
+                        error_counts['conflicting'] += 1
+                    elif 'empty' in error_message.lower():
+                        error_counts['empty'] += 1
+                    else:
+                        error_counts['other'] += 1
 
     return error_counts
 
@@ -37,7 +43,7 @@ def save_error_counts_to_csv(csv_file_path, file_number, error_counts):
 
         # Wenn die Datei neu ist, schreibe die Spaltenüberschrift
         if not file_exists:
-            csv_writer.writerow(['File Number', 'Missing', 'Unexpected', 'Conflicting', 'Other'])
+            csv_writer.writerow(['File Number', 'Missing', 'Unexpected', 'Conflicting', 'Empty (but mandatory)', 'Other'])
 
         # Schreibe die Zeile mit den Fehlerkategorien
         csv_writer.writerow([
@@ -45,6 +51,7 @@ def save_error_counts_to_csv(csv_file_path, file_number, error_counts):
             error_counts['missing'],
             error_counts['unexpected'],
             error_counts['conflicting'],
+            error_counts['empty'],
             error_counts['other']
         ])
 
