@@ -161,17 +161,6 @@ def extract_muse_xml_data(file_path):
         raise ValueError(f"Error extracting Muse XML data from {file_path}: {str(e)}")
 
 
-def extract_data(file_path):
-    try:
-        if file_path.endswith('.hea'):
-            return extract_wfdb_data(file_path)
-        elif file_path.endswith('.xml'):
-            return extract_muse_xml_data(file_path)
-        else:
-            raise ValueError(f"Unsupported file format in {file_path}. Please provide a WFDB (.hea) or Muse XML (.xml) file.")
-    except Exception as e:
-        raise ValueError(f"Error extracting data from {file_path}: {str(e)}")
-
 
 def extract_data(file_path, pseudonym_number_file):
     performance_log_path = os.path.join(os.path.dirname(file_path), '../performance.csv')
