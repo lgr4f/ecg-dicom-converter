@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='ecg-dicom-converter',
-    version='0.2.1',
+    version='1.0.0',
     packages=find_packages(),
     install_requires=[
         'wfdb>=3.3.0',
