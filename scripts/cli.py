@@ -7,16 +7,16 @@ import time
 class AnnotationsFileNotFoundError(Exception):
     pass
 
-def process_file(input_file, output_dir, annotations):
+def process_file(input_file, output_dir, annotations, pseudonym_number_file):
     try:
         # Extract ECG data and metadata
-        data, metadata = extract_data(input_file)
+        data, metadata = extract_data(input_file, pseudonym_number_file+"_xml")
 
         # Create output file path
         output_file = os.path.join(output_dir, os.path.basename(input_file) + '.dcm')
 
         # Create DICOM file
-        create_dicom_ecg(data, metadata, output_file, annotations)
+        create_dicom_ecg(data, metadata, output_file, annotations, pseudonym_number_file+"_dicom")
 
     except Exception as e:
         print(f"Error processing file {input_file}: {str(e)}")
@@ -48,6 +48,7 @@ def main():
             print(f"Error: {args.input} is not a directory")
             return
 
+        pseudonym_number_file = 1
         for root, _, files in os.walk(args.input):
             for file in files:
                 if file.endswith('.hea') or file.endswith('.xml'):
@@ -55,10 +56,11 @@ def main():
                     performance_log_path = os.path.join(os.path.dirname(input_file_path), '../performance.csv')
                     try:
                         start_time = time.time()
-                        process_file(input_file_path, args.output_dir, annotations)
+                        process_file(input_file_path, args.output_dir, annotations, str(pseudonym_number_file))
                         elapsed_time = (time.time() - start_time) * 1000  # Time in milliseconds
                         elapsed_time = str(elapsed_time).replace('.', ',')
-                        log_performance(performance_log_path, "Overall time. Corresponding XML: " + input_file_path, "-", elapsed_time, "Erfolgreich")
+                        log_performance(performance_log_path, str(pseudonym_number_file)+"_overall", "-", elapsed_time, "Erfolgreich")
+                        pseudonym_number_file = pseudonym_number_file + 1
                     except Exception:
                         print(f"Skipping file {input_file_path} due to error.")
                         log_performance(performance_log_path,"Overall time. Corresponding XML: " + input_file_path, "-", "-",

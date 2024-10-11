@@ -164,7 +164,7 @@ def extract_data(file_path):
         raise ValueError(f"Error extracting data from {file_path}: {str(e)}")
 
 
-def extract_data(file_path):
+def extract_data(file_path, pseudonym_number_file):
     performance_log_path = os.path.join(os.path.dirname(file_path), '../performance.csv')
 
     # Initialize the CSV file with headers if it doesn't exist
@@ -185,7 +185,7 @@ def extract_data(file_path):
             # Log successful performance to CSV
             with open(performance_log_path, mode='a', newline='') as file:
                 writer = csv.writer(file, delimiter=";")
-                writer.writerow([file_path, file_size, xml_read_time, "Erfolgreich"])
+                writer.writerow([pseudonym_number_file, file_size, xml_read_time, "Erfolgreich"])
 
             return muse_xml_data
 
