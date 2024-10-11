@@ -248,16 +248,17 @@ def add_patient_study_info(ds, metadata, file_meta, character_set='ISO_IR 192', 
     ds.PatientAge = (PatientAge.zfill(3) + 'Y') if PatientAge else ''
 
     Sex = metadata.get('Gender', '')
-    if Sex.lower() == "male":
-        Sex = 'M'
-    if Sex.lower() == "female":
-        Sex = 'F'
-    if Sex.lower() == "other" or Sex.lower() == "non-binary":
-        Sex = 'O'
 
-    ds.PatientSex = Sex
     if not Sex:
         warnings.warn("The tag 'Gender' is not in the XML")
+    else:
+        if Sex.lower() == "male":
+            Sex = 'M'
+        if Sex.lower() == "female":
+            Sex = 'F'
+        if Sex.lower() == "other" or Sex.lower() == "non-binary":
+            Sex = 'O'
+        ds.PatientSex = Sex
 
     ds.PatientName = metadata.get('PatientName', 'Unknown^Patient')
     if not metadata.get('PatientName'):
