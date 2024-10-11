@@ -3,20 +3,20 @@ import os
 import csv
 from .extract_ecg_and_metadata import extract_data
 from .load_to_dicom import create_dicom_ecg, DEFAULT_ANNOTATIONS, load_annotations_from_csv, merge_annotations
+from .validate_dicom import validate_dicom_file
 import time
 class AnnotationsFileNotFoundError(Exception):
     pass
 
 def process_file(input_file, output_dir, annotations, pseudonym_number_file):
     try:
-        # Extract ECG data and metadata
-        data, metadata = extract_data(input_file, pseudonym_number_file+"_xml")
-
         # Create output file path
         output_file = os.path.join(output_dir, os.path.basename(input_file) + '.dcm')
-
+        # Extract ECG data and metadata
+        data, metadata = extract_data(input_file, pseudonym_number_file+"_xml")
         # Create DICOM file
-        create_dicom_ecg(data, metadata, output_file, annotations, pseudonym_number_file+"_dicom")
+        output_file_path = create_dicom_ecg(data, metadata, output_file, annotations, pseudonym_number_file+"_dicom")
+        return output_file_path
 
     except Exception as e:
         print(f"Error processing file {input_file}: {str(e)}")
@@ -56,14 +56,15 @@ def main():
                     performance_log_path = os.path.join(os.path.dirname(input_file_path), '../performance.csv')
                     try:
                         start_time = time.time()
-                        process_file(input_file_path, args.output_dir, annotations, str(pseudonym_number_file))
+                        output_file_path = process_file(input_file_path, args.output_dir, annotations, str(pseudonym_number_file))
                         elapsed_time = (time.time() - start_time) * 1000  # Time in milliseconds
                         elapsed_time = str(elapsed_time).replace('.', ',')
                         log_performance(performance_log_path, str(pseudonym_number_file)+"_overall", "-", elapsed_time, "Erfolgreich")
+                        validate_dicom_file(output_file_path, str(pseudonym_number_file)+"_validation")
                         pseudonym_number_file = pseudonym_number_file + 1
                     except Exception:
                         print(f"Skipping file {input_file_path} due to error.")
-                        log_performance(performance_log_path,"Overall time. Corresponding XML: " + input_file_path, "-", "-",
+                        log_performance(performance_log_path,str(pseudonym_number_file)+"_overall", "-", "-",
                                         "Fehlgeschlagen")
     else:
         if not os.path.isfile(args.input):

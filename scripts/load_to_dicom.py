@@ -438,6 +438,7 @@ def create_dicom_ecg(data, metadata, output_file, annotations, pseudonym_number_
         elapsed_time = str(elapsed_time).replace('.', ',')  # Change decimal separator from . to ,
         file_size = (str(os.path.getsize(output_file) /1024)).replace('.', ',')  # Get file size in kilobytes
         log_performance(performance_log_path, pseudonym_number_file, file_size, elapsed_time, "Erfolgreich")
+        return output_file
     except Exception as e:
         log_performance(performance_log_path, pseudonym_number_file, "-",  "Fehlgeschlagen (Save)")
         raise RuntimeError(f"Error saving DICOM file: {str(e)}")
