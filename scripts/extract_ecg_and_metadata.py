@@ -7,6 +7,7 @@ import sys
 import time
 import csv
 import os
+import warnings
 
 def extract_wfdb_data(file_path):
     record = wfdb.rdrecord(file_path[:-4])
@@ -75,14 +76,22 @@ def extract_muse_xml_data(file_path):
 
         # Extract additional metadata
         patient = root.find('.//PatientDemographics')
+
         test = root.find('.//TestDemographics')
         order = root.find('.//Order')
         measurements = root.find('.//RestingECGMeasurements')
+        if patient is not None:
+            metadata = {
+                'PatientID': patient.findtext('PatientID'),
+                'LeadFilters': lead_filters
+            }
+        else:
+            metadata = {
+                'PatientID': "",
+                'LeadFilters': lead_filters
+            }
+            warnings.warn("There is no PatientDemographics section in the XML")
 
-        metadata = {
-            'PatientID': patient.findtext('PatientID'),
-            'LeadFilters': lead_filters
-        }
 
         if patient is not None:
             metadata['PatientName'] = (
