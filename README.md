@@ -20,3 +20,14 @@ ecg-dicom-converter path_to_input_file path_to_output
 OR
 ecg-dicom-converter path_to_input path_to_output -r
 ```
+
+## Usage of DICOM ECGs
+How to extract the raw signal of a DICOM ECG via Python
+'''
+import pydicom
+
+dicom_data = pydicom.dcmread(path_to_dicom_ecg)
+waveform_seq = dicom_data.WaveformSequence[0]
+compressed_signal = waveform_seq.WaveformData
+raw_signal = np.frombuffer(raw_data, dtype=np.int16)
+'''
