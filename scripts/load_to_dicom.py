@@ -368,79 +368,79 @@ def create_dicom_ecg(data, metadata, output_file, annotations, pseudonym_number_
     performance_log_path = os.path.join(os.path.dirname(output_file), '../performance.csv')
 
     # Initialize the CSV file with headers if it doesn't exist
-    if not os.path.exists(performance_log_path):
-        with open(performance_log_path, mode='w', newline='') as file:
-            writer = csv.writer(file, delimiter=';')
-            writer.writerow(["Filename", "Dateigröße (Kilobytes)", "Zeit DICOM erstellen (ms)", "Status"])
+   # if not os.path.exists(performance_log_path):
+       # with open(performance_log_path, mode='w', newline='') as file:
+         #   writer = csv.writer(file, delimiter=';')
+          #  writer.writerow(["Filename", "Dateigröße (Kilobytes)", "Zeit DICOM erstellen (ms)", "Status"])
 
     ds = None
     file_meta = None
 
     # Measure time for DICOM creation
-    start_time = time.time()
+    #start_time = time.time()
 
     try:
         # Handle file meta creation
         file_meta = create_file_meta()
     except Exception as e:
-        log_performance(performance_log_path, pseudonym_number_file, "-", "-", "Fehlgeschlagen (File Meta)")
+        #log_performance(performance_log_path, pseudonym_number_file, "-", "-", "Fehlgeschlagen (File Meta)")
         raise RuntimeError(f"Error creating file meta information: {str(e)}")
 
     try:
         # Create the DICOM file dataset
         ds = FileDataset(output_file, {}, file_meta=file_meta, preamble=b"\0" * 128)
     except Exception as e:
-        log_performance(performance_log_path, pseudonym_number_file, "-", "-", "Fehlgeschlagen (Dataset)")
+        #log_performance(performance_log_path, pseudonym_number_file, "-", "-", "Fehlgeschlagen (Dataset)")
         raise RuntimeError(f"Error creating DICOM dataset: {str(e)}")
 
     try:
         # Add patient and study info
         add_patient_study_info(ds, metadata, file_meta)
     except KeyError as e:
-        log_performance(performance_log_path, pseudonym_number_file, "-", "-", "Fehlgeschlagen (Patient Info)")
+       #log_performance(performance_log_path, pseudonym_number_file, "-", "-", "Fehlgeschlagen (Patient Info)")
         raise RuntimeError(f"Missing required patient or study metadata: {str(e)}")
     except Exception as e:
-        log_performance(performance_log_path, pseudonym_number_file, "-", "-", "Fehlgeschlagen (Patient Info)")
+       # log_performance(performance_log_path, pseudonym_number_file, "-", "-", "Fehlgeschlagen (Patient Info)")
         raise RuntimeError(f"Error adding patient/study info: {str(e)}")
 
     try:
         # Add waveform data
         add_waveform_data(ds, data, metadata)
     except KeyError as e:
-        log_performance(performance_log_path, pseudonym_number_file, "-", "-", "Fehlgeschlagen (Waveform Data)")
+      #  log_performance(performance_log_path, pseudonym_number_file, "-", "-", "Fehlgeschlagen (Waveform Data)")
         raise RuntimeError(f"Missing required waveform data: {str(e)}")
     except Exception as e:
-        log_performance(performance_log_path, pseudonym_number_file, "-", "-", "Fehlgeschlagen (Waveform Data)")
+       # log_performance(performance_log_path, pseudonym_number_file, "-", "-", "Fehlgeschlagen (Waveform Data)")
         raise RuntimeError(f"Error adding waveform data: {str(e)}")
 
     try:
         # Add acquisition context
         add_acquisition_context_sequence(ds, metadata)
     except Exception as e:
-        log_performance(performance_log_path, pseudonym_number_file, "-", "-", "Fehlgeschlagen (Acquisition Context)")
+       # log_performance(performance_log_path, pseudonym_number_file, "-", "-", "Fehlgeschlagen (Acquisition Context)")
         raise RuntimeError(f"Error adding acquisition context sequence: {str(e)}")
 
     try:
         # Add annotations
         add_annotations(ds, metadata, annotations)
     except KeyError as e:
-        log_performance(performance_log_path, pseudonym_number_file, "-", "-", "Fehlgeschlagen (Annotations)")
+      #  log_performance(performance_log_path, pseudonym_number_file, "-", "-", "Fehlgeschlagen (Annotations)")
         raise RuntimeError(f"Missing required annotation data: {str(e)}")
     except Exception as e:
-        log_performance(performance_log_path, pseudonym_number_file, "-", "-", "Fehlgeschlagen (Annotations)")
+        #log_performance(performance_log_path, pseudonym_number_file, "-", "-", "Fehlgeschlagen (Annotations)")
         raise RuntimeError(f"Error adding annotations: {str(e)}")
 
     try:
         # Save the DICOM file
         ds.save_as(output_file)
         print(f'DICOM file saved as {output_file}')
-        elapsed_time = (time.time() - start_time) * 1000  # Time in milliseconds
-        elapsed_time = str(elapsed_time).replace('.', ',')  # Change decimal separator from . to ,
+       # elapsed_time = (time.time() - start_time) * 1000  # Time in milliseconds
+       # elapsed_time = str(elapsed_time).replace('.', ',')  # Change decimal separator from . to ,
         file_size = (str(os.path.getsize(output_file) /1024)).replace('.', ',')  # Get file size in kilobytes
-        log_performance(performance_log_path, pseudonym_number_file, file_size, elapsed_time, "Erfolgreich")
-        return output_file
+       # log_performance(performance_log_path, pseudonym_number_file, file_size, elapsed_time, "Erfolgreich")
+        return output_file, file_size
     except Exception as e:
-        log_performance(performance_log_path, pseudonym_number_file, "-",  "Fehlgeschlagen (Save)")
+        #log_performance(performance_log_path, pseudonym_number_file, "-",  "Fehlgeschlagen (Save)")
         raise RuntimeError(f"Error saving DICOM file: {str(e)}")
 
 

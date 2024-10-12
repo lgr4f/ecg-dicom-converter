@@ -13,10 +13,10 @@ def process_file(input_file, output_dir, annotations, pseudonym_number_file):
         # Create output file path
         output_file = os.path.join(output_dir, os.path.basename(input_file) + '.dcm')
         # Extract ECG data and metadata
-        data, metadata = extract_data(input_file, pseudonym_number_file+"_xml")
+        data, metadata, xml_filesize = extract_data(input_file, pseudonym_number_file+"_xml")
         # Create DICOM file
-        output_file_path = create_dicom_ecg(data, metadata, output_file, annotations, pseudonym_number_file+"_dicom")
-        return output_file_path
+        output_file_path, dicom_filesize = create_dicom_ecg(data, metadata, output_file, annotations, pseudonym_number_file+"_dicom")
+        return xml_filesize, output_file_path, dicom_filesize
 
     except Exception as e:
         print(f"Error processing file {input_file}: {str(e)}")
@@ -56,10 +56,10 @@ def main():
                     performance_log_path = os.path.join(os.path.dirname(input_file_path), '../performance.csv')
                     try:
                         start_time = time.time()
-                        output_file_path = process_file(input_file_path, args.output_dir, annotations, str(pseudonym_number_file))
+                        xml_filesize, output_file_path, dicom_filesize = process_file(input_file_path, args.output_dir, annotations, str(pseudonym_number_file))
                         elapsed_time = (time.time() - start_time) * 1000  # Time in milliseconds
                         elapsed_time = str(elapsed_time).replace('.', ',')
-                        log_performance(performance_log_path, str(pseudonym_number_file)+"_overall", "-", elapsed_time, "Erfolgreich")
+                        log_performance(performance_log_path, str(pseudonym_number_file)+"_overall", elapsed_time, xml_filesize, dicom_filesize)
                         validate_dicom_file(output_file_path, str(pseudonym_number_file)+"_validation")
                         pseudonym_number_file = pseudonym_number_file + 1
                     except Exception:
@@ -75,11 +75,21 @@ def main():
         except Exception:
             print(f"Skipping file {args.input} due to error.")
 
-def log_performance(performance_log_path, filename, file_size, overall_time, status):
-    """Helper function to log performance to the CSV file."""
+
+def log_performance(performance_log_path, filename, overall_time, xml_filesize, dicom_filesize):
+    """Helper function to log performance to the CSV file, creating it with headers if necessary."""
+
+    file_exists = os.path.isfile(performance_log_path)
+
     with open(performance_log_path, mode='a', newline='') as file:
         writer = csv.writer(file, delimiter=';')
-        writer.writerow([filename, file_size, overall_time, status])
+
+        # Write headers if the file doesn't exist
+        if not file_exists:
+            writer.writerow(["Filename (pseudonym)", "Overall time", "XML file size", "DICOM file size"])
+
+        # Write the performance data
+        writer.writerow([filename, overall_time, xml_filesize, dicom_filesize])
 
 if __name__ == '__main__':
     main()
