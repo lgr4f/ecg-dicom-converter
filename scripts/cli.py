@@ -59,13 +59,13 @@ def main():
                         xml_filesize, output_file_path, dicom_filesize = process_file(input_file_path, args.output_dir, annotations, str(pseudonym_number_file))
                         elapsed_time = (time.time() - start_time) * 1000  # Time in milliseconds
                         elapsed_time = str(elapsed_time).replace('.', ',')
-                        log_performance(performance_log_path, str(pseudonym_number_file)+"_overall", elapsed_time, xml_filesize, dicom_filesize)
-                        validate_dicom_file(output_file_path, str(pseudonym_number_file)+"_validation")
+                        log_performance(performance_log_path, str(pseudonym_number_file), elapsed_time, xml_filesize, dicom_filesize, "Erfolgreich")
+                        validate_dicom_file(output_file_path, str(pseudonym_number_file))
                         pseudonym_number_file = pseudonym_number_file + 1
                     except Exception:
                         print(f"Skipping file {input_file_path} due to error.")
-                        log_performance(performance_log_path,str(pseudonym_number_file)+"_overall", "-", "-",
-                                        "Fehlgeschlagen")
+                        log_performance(performance_log_path,str(pseudonym_number_file), "-", "-",
+                                        "-", "Fehlgeschlagen")
     else:
         if not os.path.isfile(args.input):
             print(f"Error: {args.input} is not a valid file")
@@ -76,7 +76,7 @@ def main():
             print(f"Skipping file {args.input} due to error.")
 
 
-def log_performance(performance_log_path, filename, overall_time, xml_filesize, dicom_filesize):
+def log_performance(performance_log_path, filename, overall_time, xml_filesize, dicom_filesize, status):
     """Helper function to log performance to the CSV file, creating it with headers if necessary."""
 
     file_exists = os.path.isfile(performance_log_path)
@@ -86,10 +86,10 @@ def log_performance(performance_log_path, filename, overall_time, xml_filesize, 
 
         # Write headers if the file doesn't exist
         if not file_exists:
-            writer.writerow(["Filename (pseudonym)", "Overall time", "XML file size", "DICOM file size"])
+            writer.writerow(["Filename (pseudonym)", "Overall time", "XML file size", "DICOM file size", "Status"])
 
         # Write the performance data
-        writer.writerow([filename, overall_time, xml_filesize, dicom_filesize])
+        writer.writerow([filename, overall_time, xml_filesize, dicom_filesize, status])
 
 if __name__ == '__main__':
     main()
