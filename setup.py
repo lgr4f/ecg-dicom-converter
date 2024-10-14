@@ -22,7 +22,7 @@ setup(
     url='https://gitlab.gwdg.de/medinfpub/mi-xnat/extensions/clients/ecg-dicom-converter',
     classifiers=[
         'Programming Language :: Python :: 3',
-        'License :: OSI Approved :: MIT License',
+        'License :: GNU General Public License',
         'Operating System :: OS Independent',
     ],
     python_requires='>=3.6',
