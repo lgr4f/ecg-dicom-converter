@@ -220,7 +220,9 @@ def add_patient_study_info(ds, metadata, file_meta, character_set='ISO_IR 192', 
     # Rest of the metadata with warnings
     ds.AccessionNumber = ''
     ds.Modality = 'ECG'
-    ds.Manufacturer = metadata.get('AcquisitionDevice', 'Unknown')
+    ds.Manufacturer = "GE HealthCare"
+    ds.ManufacturerModelName = metadata.get('AcquisitionDevice', 'Unknown')
+    ds.StationName = metadata.get('LocationName', 'Unknown')
     if not metadata.get('AcquisitionDevice'):
         warnings.warn("The tag 'AcquisitionDevice' is not in the XML")
 

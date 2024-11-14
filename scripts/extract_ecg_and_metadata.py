@@ -102,6 +102,7 @@ def extract_muse_xml_data(file_path):
             metadata['AcquisitionTime'] = test.findtext('AcquisitionTime')
             metadata['AcquisitionDevice'] = test.findtext('AcquisitionDevice')
             metadata['SiteName'] = test.findtext('SiteName')
+            metadata['LocationName'] = test.findtext('LocationName')
 
         # needs a connetion to the HIS for the information
         if order is not None:
