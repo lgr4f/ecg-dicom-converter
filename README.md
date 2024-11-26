@@ -16,9 +16,9 @@ pip install .
 Here is an example of how to use this package:
 
 ```sh
-ecg-dicom-converter path_to_input_file path_to_output
+ecg_dicom_converter path_to_input_file path_to_output
 OR
-ecg-dicom-converter path_to_input path_to_output -r
+ecg_dicom_converter path_to_input path_to_output -r
 ```
 
 ## Usage of DICOM ECGs

@@ -1,3 +1,4 @@
 /build/
 /ecg_dicom_converter.egg-info/
 /.idea/
+testscript.py

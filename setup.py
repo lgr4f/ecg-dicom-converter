@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 
 setup(
-    name='ecg-dicom-converter',
+    name='ecg_dicom_converter',
     version='1.0.0',
     packages=find_packages(),
     install_requires=[
@@ -11,7 +11,7 @@ setup(
     ],
     entry_points={
         'console_scripts': [
-            'ecg-dicom-converter=scripts.cli:main',  # This should match the actual package and module names
+            'ecg_dicom_converter=ecg_dicom_converter.cli:main',  # This should match the actual package and module names
         ],
     },
     author='Lennart Graf',
