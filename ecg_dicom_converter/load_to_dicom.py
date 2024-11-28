@@ -145,7 +145,7 @@ def format_date(date_str):
 
         # Try to parse as 'dd-mm-yyyy' format first
         try:
-            return datetime.strptime(date_str, '%d-%m-%Y').strftime('%Y%m%d')
+            return datetime.strptime(date_str, '%m-%d-%Y').strftime('%Y%m%d')
         except ValueError:
             pass
 
@@ -263,6 +263,7 @@ def add_patient_study_info(ds, metadata, file_meta, character_set='ISO_IR 192', 
     if not metadata.get('PatientName'):
         warnings.warn("The tags of the patient names are not in the XML")
 
+    test = format_date(metadata.get('DateofBirth', ''))
     ds.PatientBirthDate = format_date(metadata.get('DateofBirth', ''))
     if not metadata.get('DateofBirth'):
         warnings.warn("The tag 'DateofBirth' is not in the XML")
