@@ -20,8 +20,8 @@ def extract_wfdb_data(file_path):
 def decode_waveform_data(waveform_data, amplitude_units_per_bit):
     decoded_data = base64.b64decode(waveform_data.strip())
     data_points = struct.unpack('<' + 'h' * (len(decoded_data) // 2), decoded_data)
-    data_points_mV = np.array(data_points) * amplitude_units_per_bit * 0.001
-    return data_points_mV
+    data_points_uV = np.array(data_points) * amplitude_units_per_bit * 0.001
+    return data_points_uV
 
 
 def convert_to_float(value):
@@ -45,8 +45,8 @@ def extract_muse_xml_data(file_path):
                 lead_id = lead.find('LeadID').text
                 amplitude_units_per_bit = convert_to_float(lead.find('LeadAmplitudeUnitsPerBit').text)
                 waveform_data = lead.find('WaveFormData').text
-                data_points_mV = decode_waveform_data(waveform_data, amplitude_units_per_bit)
-                leads[lead_id] = data_points_mV
+                data_points_uV = decode_waveform_data(waveform_data, amplitude_units_per_bit)
+                leads[lead_id] = data_points_uV
 
                 # Extract channel-specific filter values
                 lead_filters[lead_id] = {

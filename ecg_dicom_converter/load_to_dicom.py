@@ -263,7 +263,6 @@ def add_patient_study_info(ds, metadata, file_meta, character_set='ISO_IR 192', 
     if not metadata.get('PatientName'):
         warnings.warn("The tags of the patient names are not in the XML")
 
-    test = format_date(metadata.get('DateofBirth', ''))
     ds.PatientBirthDate = format_date(metadata.get('DateofBirth', ''))
     if not metadata.get('DateofBirth'):
         warnings.warn("The tag 'DateofBirth' is not in the XML")
@@ -319,17 +318,18 @@ def add_waveform_data(ds, data, metadata):
         source.CodeValue = code_values[i]  # Set CodeValue based on the lead
         source.CodingSchemeDesignator = 'MDC'
         source.CodeMeaning = lead_id
-        #channel_def_item.MeasurementUnitsCodeSequence = Sequence([Dataset()])
-        #channel_def_item.MeasurementUnitsCodeSequence[0].CodeValue = 'uV'
-        #channel_def_item.MeasurementUnitsCodeSequence[0].CodingSchemeDesignator = 'UCUM'
-        #channel_def_item.MeasurementUnitsCodeSequence[0].CodingSchemeVersion = '1.4'
-        #channel_def_item.MeasurementUnitsCodeSequence[0].CodeMeaning = 'microvolt'
+        channel_def_item.ChannelSensitivityUnitsSequence = Sequence([Dataset()])
+        channel_def_item.ChannelSensitivityUnitsSequence[0].CodeValue = 'uV'
+        channel_def_item.ChannelSensitivityUnitsSequence[0].CodingSchemeDesignator = 'UCUM'
+        channel_def_item.ChannelSensitivityUnitsSequence[0].CodingSchemeVersion = '1.4'
+        channel_def_item.ChannelSensitivityUnitsSequence[0].CodeMeaning = 'microvolt'
 
         lead_filters = metadata.get('LeadFilters', {})
         # Adding the channel-specific filter information
         channel_def_item.FilterLowFrequency = lead_filters.get(lead_id, {}).get('HighPassFilter', '0')
         channel_def_item.FilterHighFrequency = lead_filters.get(lead_id, {}).get('LowPassFilter', '0')
         channel_def_item.NotchFilterFrequency = lead_filters.get(lead_id, {}).get('ACFilter', '0')
+
 
         waveform_item.ChannelDefinitionSequence.append(channel_def_item)
         waveform_data[:, i] = data[lead_id] * 1000
