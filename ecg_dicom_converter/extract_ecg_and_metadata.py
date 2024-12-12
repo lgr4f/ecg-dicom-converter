@@ -39,6 +39,7 @@ def extract_muse_xml_data(file_path):
         root = tree.getroot()
         leads = {}
         lead_filters = {}
+        lead_sample_count = {}
 
         for waveform in root.findall('.//Waveform'):
             for lead in waveform.findall('LeadData'):
@@ -54,6 +55,9 @@ def extract_muse_xml_data(file_path):
                     'LowPassFilter': waveform.findtext('LowPassFilter', '0'),
                     'ACFilter': waveform.findtext('ACFilter', '0')
                 }
+
+                lead_sample_count[lead_id] = int(lead.findtext('LeadSampleCountTotal', 0))
+
 
         # Calculate the manually derived leads
         leads['III'] = np.subtract(leads['II'], leads['I'])
@@ -79,12 +83,14 @@ def extract_muse_xml_data(file_path):
         if patient is not None:
             metadata = {
                 'PatientID': patient.findtext('PatientID'),
-                'LeadFilters': lead_filters
+                'LeadFilters': lead_filters,
+                'SampleCount': lead_sample_count
             }
         else:
             metadata = {
                 'PatientID': "",
-                'LeadFilters': lead_filters
+                'LeadFilters': lead_filters,
+                'SampleCount': lead_sample_count
             }
             warnings.warn("There is no PatientDemographics section in the XML")
 

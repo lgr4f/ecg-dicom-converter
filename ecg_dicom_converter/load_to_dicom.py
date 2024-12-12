@@ -2,7 +2,7 @@ import csv
 import pydicom
 from pydicom.dataset import Dataset, FileDataset
 from pydicom.sequence import Sequence
-from datetime import datetime
+from datetime import datetime, timedelta
 import numpy as np
 import uuid
 import hashlib
@@ -269,6 +269,8 @@ def add_patient_study_info(ds, metadata, file_meta, character_set='ISO_IR 192', 
 
     ds.PerformedProcedureStepStartDate = format_date(metadata.get('AcquisitionDate', ''))
     ds.PerformedProcedureStepStartTime = format_time(metadata.get('AcquisitionTime', ''))
+    ds.PerformedProcedureStepEndDate = str(get_performed_procedure_step_end_data(metadata)[0])
+    ds.PerformedProcedureStepEndTime = str(get_performed_procedure_step_end_data(metadata)[1])
 
     # Additional measurements (if needed)
     Measurements = metadata.get('Measurements', {})
@@ -285,6 +287,38 @@ def add_patient_study_info(ds, metadata, file_meta, character_set='ISO_IR 192', 
     item.MeasuredValueSequence[0].CodeMeaning = 'microvolt'
     ds[0x0040, 0x0275].value.append(item)
 
+def get_performed_procedure_step_end_data(metadata):
+    max_sample_count = max(metadata['SampleCount'].values())
+    sampling_frequency = metadata['SampleFrequency']
+
+    # Startzeit und Datum auslesen
+    acquisition_time = metadata['AcquisitionTime']  # Erwartetes Format: HHMMSS
+    acquisition_date = metadata['AcquisitionDate']  # Erwartetes Format: YYYYMMDD
+
+    # Falls das Format nicht korrekt ist, umwandeln
+    if "-" in acquisition_date:  # Prüfen auf abweichendes Format
+        acquisition_date = datetime.strptime(acquisition_date, "%m-%d-%Y").strftime("%Y%m%d")
+    if ":" in acquisition_time:  # Prüfen auf abweichendes Format
+        acquisition_time = acquisition_time.replace(":", "")
+
+    # Startzeitpunkt als datetime-Objekt erstellen
+    start_datetime = datetime.strptime(f"{acquisition_date}{acquisition_time}", "%Y%m%d%H%M%S")
+
+    # Dauer in Sekunden berechnen und zur Startzeit hinzufügen
+    duration_seconds = max_sample_count / sampling_frequency
+    end_datetime = start_datetime + timedelta(seconds=duration_seconds)
+
+    # Enddatum und -zeit formatieren
+    end_date = end_datetime.strftime("%Y%m%d")
+    end_time = end_datetime.strftime("%H%M%S")
+
+    return end_date, end_time
+
+
+def get_performed_procedure_step_end_time(metadata):
+    max_sample_count_key = max(metadata['SampleCount'].values())
+    sampling_frequency = metadata['SampleFrequency']
+    start_time = metadata['AcquisitionTime']
 
 def add_waveform_data(ds, data, metadata):
     lead_order = ['I', 'II', 'III', 'aVR', 'aVL', 'aVF', 'V1', 'V2', 'V3', 'V4', 'V5', 'V6']
