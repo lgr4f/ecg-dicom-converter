@@ -25,6 +25,7 @@ ecg_dicom_converter path_to_input path_to_output -r
 How to extract the raw signal of a DICOM ECG via Python
 ```sh
 import pydicom
+import numpy as np
 
 dicom_data = pydicom.dcmread(path_to_dicom_ecg)
 waveform_seq = dicom_data.WaveformSequence[0]
