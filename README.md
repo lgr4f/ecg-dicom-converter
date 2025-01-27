@@ -30,7 +30,7 @@ import numpy as np
 dicom_data = pydicom.dcmread(path_to_dicom_ecg)
 waveform_seq = dicom_data.WaveformSequence[0]
 compressed_signal = waveform_seq.WaveformData
-raw_signal = np.frombuffer(raw_data, dtype=np.int16)
+raw_signal = np.frombuffer(compressed_signal, dtype=np.int16)
 num_samples = waveform_seq.NumberOfWaveformSamples
 num_channels = waveform_seq.NumberOfWaveformChannels
 waveform_data = raw_signal.reshape((num_samples, num_channels))
