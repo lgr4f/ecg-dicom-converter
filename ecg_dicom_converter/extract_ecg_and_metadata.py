@@ -4,6 +4,9 @@ import base64
 import struct
 import numpy as np
 import warnings
+import logging
+
+logging.basicConfig(level=logging.INFO)
 
 def extract_wfdb_data(file_path):
     record = wfdb.rdrecord(file_path[:-4])
@@ -37,86 +40,127 @@ def extract_muse_xml_data(file_path):
     try:
         tree = ET.parse(file_path)
         root = tree.getroot()
-        leads = {}
-        lead_filters = {}
-        lead_sample_count = {}
+        rhythm_leads = {}
+        rhythm_lead_filters = {}
+        rhythm_lead_sample_count = {}
+        found_rhythm_waveform = False
+
+        median_leads = {}
+        median_lead_filters = {}
+        median_lead_sample_count = {}
+        found_median_waveform = False
 
         for waveform in root.findall('.//Waveform'):
-            for lead in waveform.findall('LeadData'):
-                lead_id = lead.find('LeadID').text
-                amplitude_units_per_bit = convert_to_float(lead.find('LeadAmplitudeUnitsPerBit').text)
-                waveform_data = lead.find('WaveFormData').text
-                data_points_uV = decode_waveform_data(waveform_data, amplitude_units_per_bit)
-                leads[lead_id] = data_points_uV
+            waveform_type = waveform.find('WaveformType')
+            if waveform_type is not None and waveform_type.text == "Rhythm":
+                found_rhythm_waveform = True
+                for lead in waveform.findall('LeadData'):
+                    lead_id = lead.find('LeadID').text
+                    amplitude_units = convert_to_float(lead.find('LeadAmplitudeUnitsPerBit').text)
+                    waveform_data = lead.find('WaveFormData').text
+                    data_points = decode_waveform_data(waveform_data, amplitude_units)
+                    rhythm_leads[lead_id] = data_points
 
-                # Extract channel-specific filter values
-                lead_filters[lead_id] = {
-                    'HighPassFilter': waveform.findtext('HighPassFilter', '0'),
-                    'LowPassFilter': waveform.findtext('LowPassFilter', '0'),
-                    'ACFilter': waveform.findtext('ACFilter', '0')
-                }
+                    rhythm_lead_filters[lead_id] = {
+                        'HighPassFilter': waveform.findtext('HighPassFilter', '0'),
+                        'LowPassFilter': waveform.findtext('LowPassFilter', '0'),
+                        'ACFilter': waveform.findtext('ACFilter', '0')
+                    }
 
-                lead_sample_count[lead_id] = int(lead.findtext('LeadSampleCountTotal', 0))
+                    rhythm_lead_sample_count[lead_id] = int(lead.findtext('LeadSampleCountTotal', 0))
 
+            elif waveform_type is not None and waveform_type.text == "Median":
+                found_median_waveform = True
+                for lead in waveform.findall('LeadData'):
+                    lead_id = lead.find('LeadID').text
+                    amplitude_units = convert_to_float(lead.find('LeadAmplitudeUnitsPerBit').text)
+                    waveform_data = lead.find('WaveFormData').text
+                    data_points = decode_waveform_data(waveform_data, amplitude_units)
+                    median_leads[lead_id] = data_points
 
-        # Calculate the manually derived leads
-        leads['III'] = np.subtract(leads['II'], leads['I'])
-        leads['aVR'] = -(leads['I'] + leads['II']) / 2
-        leads['aVL'] = leads['I'] - (leads['II'] / 2)
-        leads['aVF'] = leads['II'] - (leads['I'] / 2)
+                    median_lead_filters[lead_id] = {
+                        'HighPassFilter': waveform.findtext('HighPassFilter', '0'),
+                        'LowPassFilter': waveform.findtext('LowPassFilter', '0'),
+                        'ACFilter': waveform.findtext('ACFilter', '0')
+                    }
 
+                    median_lead_sample_count[lead_id] = int(lead.findtext('LeadSampleCountTotal', 0))
 
-        # Inherit the filter settings from the original leads
-        lead_filters['III'] = lead_filters['II']  # III is derived from II and I, choose II or I
-        lead_filters['aVR'] = lead_filters['I']   # aVR is derived from I and II, choose I or average
-        lead_filters['aVL'] = lead_filters['I']   # aVL is derived from I and II, choose I
-        lead_filters['aVF'] = lead_filters['II']  # aVF is derived from II and I, choose II
+        # Derived leads (only if I and II are present)
+        if found_rhythm_waveform:
+            if 'I' in rhythm_leads and 'II' in rhythm_leads:
+                rhythm_leads['III'] = np.subtract(rhythm_leads['II'], rhythm_leads['I'])
+                rhythm_leads['aVR'] = -(rhythm_leads['I'] + rhythm_leads['II']) / 2
+                rhythm_leads['aVL'] = rhythm_leads['I'] - (rhythm_leads['II'] / 2)
+                rhythm_leads['aVF'] = rhythm_leads['II'] - (rhythm_leads['I'] / 2)
 
-
-
-        # Extract additional metadata
-        patient = root.find('.//PatientDemographics')
-
-        test = root.find('.//TestDemographics')
-        order = root.find('.//Order')
-        measurements = root.find('.//RestingECGMeasurements')
-        if patient is not None:
-            metadata = {
-                'PatientID': patient.findtext('PatientID'),
-                'LeadFilters': lead_filters,
-                'SampleCount': lead_sample_count
-            }
+                rhythm_lead_filters['III'] = rhythm_lead_filters.get('II', {})
+                rhythm_lead_filters['aVR'] = rhythm_lead_filters.get('I', {})
+                rhythm_lead_filters['aVL'] = rhythm_lead_filters.get('I', {})
+                rhythm_lead_filters['aVF'] = rhythm_lead_filters.get('II', {})
+            else:
+                logging.warning("Leads I and II are required to derive III, aVR, aVL, aVF for Rhythm waveform.")
         else:
-            metadata = {
-                'PatientID': "",
-                'LeadFilters': lead_filters,
-                'SampleCount': lead_sample_count
-            }
-            warnings.warn("There is no PatientDemographics section in the XML")
+            logging.warning("No 'Rhythm' waveform found in the XML.")
 
+        if found_median_waveform:
+            if 'I' in median_leads and 'II' in median_leads:
+                median_leads['III'] = np.subtract(median_leads['II'], median_leads['I'])
+                median_leads['aVR'] = -(median_leads['I'] + median_leads['II']) / 2
+                median_leads['aVL'] = median_leads['I'] - (median_leads['II'] / 2)
+                median_leads['aVF'] = median_leads['II'] - (median_leads['I'] / 2)
 
+                median_lead_filters['III'] = median_lead_filters.get('II', {})
+                median_lead_filters['aVR'] = median_lead_filters.get('I', {})
+                median_lead_filters['aVL'] = median_lead_filters.get('I', {})
+                median_lead_filters['aVF'] = median_lead_filters.get('II', {})
+            else:
+                logging.warning("Leads I and II are required to derive III, aVR, aVL, aVF for Median waveform.")
+        else:
+            logging.warning("No 'Median' waveform found in the XML.")
+
+        # Metadata extraction
+        metadata = {
+            'PatientID': '',
+            'RhythmLeadFilters': rhythm_lead_filters,
+            'RhythmCount': rhythm_lead_sample_count,
+            'MedianLeadFilters': median_lead_filters,
+            'MedianCount': median_lead_sample_count
+        }
+
+        patient = root.find('.//PatientDemographics')
         if patient is not None:
-            metadata['PatientName'] = (
-                        patient.findtext('PatientLastName') + '^' + patient.findtext('PatientFirstName')).strip(
-                '^') if patient.findtext('PatientLastName') and patient.findtext('PatientFirstName') else None
+            metadata['PatientID'] = patient.findtext('PatientID', '')
+            last_name = patient.findtext('PatientLastName')
+            first_name = patient.findtext('PatientFirstName')
+            if last_name and first_name:
+                metadata['PatientName'] = f"{last_name}^{first_name}".strip('^')
             metadata['PatientAge'] = patient.findtext('PatientAge')
             metadata['Gender'] = patient.findtext('Gender')
             metadata['DateofBirth'] = patient.findtext('DateofBirth')
+        else:
+            warnings.warn("No PatientDemographics section found in XML.")
 
+        test = root.find('.//TestDemographics')
         if test is not None:
-            metadata['AcquisitionDate'] = test.findtext('AcquisitionDate')
-            metadata['AcquisitionTime'] = test.findtext('AcquisitionTime')
-            metadata['AcquisitionDevice'] = test.findtext('AcquisitionDevice')
-            metadata['SiteName'] = test.findtext('SiteName')
-            metadata['LocationName'] = test.findtext('LocationName')
+            metadata.update({
+                'AcquisitionDate': test.findtext('AcquisitionDate'),
+                'AcquisitionTime': test.findtext('AcquisitionTime'),
+                'AcquisitionDevice': test.findtext('AcquisitionDevice'),
+                'SiteName': test.findtext('SiteName'),
+                'LocationName': test.findtext('LocationName')
+            })
 
-        # needs a connetion to the HIS for the information
+        order = root.find('.//Order')
         if order is not None:
-            metadata['AdmitTime'] = order.findtext('AdmitTime')
-            metadata['AdmitDate'] = order.findtext('AdmitDate')
-            metadata['EditTime'] = order.findtext('EditTime')
-            metadata['EditDate'] = order.findtext('EditDate')
+            metadata.update({
+                'AdmitTime': order.findtext('AdmitTime'),
+                'AdmitDate': order.findtext('AdmitDate'),
+                'EditTime': order.findtext('EditTime'),
+                'EditDate': order.findtext('EditDate')
+            })
 
+        measurements = root.find('.//RestingECGMeasurements')
         if measurements is not None:
             metadata['measurements'] = {
                 'VentricularRate': measurements.findtext('VentricularRate'),
@@ -135,31 +179,37 @@ def extract_muse_xml_data(file_path):
                 'POffset': measurements.findtext('POffset'),
                 'TOffset': measurements.findtext('TOffset')
             }
+            base = measurements.findtext('ECGSampleBase')
+            exp = measurements.findtext('ECGSampleExponent')
+            if base and exp:
+                metadata['SampleFrequency'] = float(base) * (10 ** float(exp))
 
-            metadata['SampleFrequency'] = float(measurements.findtext('ECGSampleBase')) * (
-                        10 ** float(measurements.findtext('ECGSampleExponent'))) if measurements.findtext(
-                'ECGSampleBase') and measurements.findtext('ECGSampleExponent') else None
+        # Diagnoses
+        metadata['diagnosis'] = [d.findtext('StmtText').strip()
+                                 for d in root.findall('.//DiagnosisStatement')
+                                 if d.findtext('StmtText')]
 
-        metadata['diagnosis'] = []
-        for diagnosis in root.findall('.//DiagnosisStatement'):
-            text = diagnosis.findtext('StmtText')
-            if text:
-                metadata['diagnosis'].append(text.strip())
-
+        # QRS Times
         metadata['QRSTimes'] = []
         for qrs in root.findall('.//QRSTimesTypes/QRS'):
-            metadata['QRSTimes'].append({
-                'number': int(qrs.findtext('Number')),
-                'type': int(qrs.findtext('Type')),
-                'time': int(qrs.findtext('Time'))
-            })
-        metadata['RRInterval'] = int(root.findtext('.//QRSTimesTypes/GlobalRR')) if root.findtext(
-            './/QRSTimesTypes/GlobalRR') else None
+            try:
+                metadata['QRSTimes'].append({
+                    'number': int(qrs.findtext('Number', 0)),
+                    'type': int(qrs.findtext('Type', 0)),
+                    'time': int(qrs.findtext('Time', 0))
+                })
+            except Exception as e:
+                logging.warning(f"Failed to parse QRS time: {e}")
 
-        metadata['qtrggr'] = int(root.findtext('.//QRSTimesTypes/QTRGGR')) if root.findtext(
-            './/QRSTimesTypes/QTRGGR') else None
+        rr = root.findtext('.//QRSTimesTypes/GlobalRR')
+        metadata['RRInterval'] = int(rr) if rr else None
 
-        return leads, metadata
+        qtrggr = root.findtext('.//QRSTimesTypes/QTRGGR')
+        metadata['qtrggr'] = int(qtrggr) if qtrggr else None
+
+        # Final return: two-lead list and metadata
+        return rhythm_leads, median_leads, metadata
+
     except Exception as e:
         raise ValueError(f"Error extracting Muse XML data from {file_path}: {str(e)}")
 

@@ -10,18 +10,22 @@ class AnnotationsFileNotFoundError(Exception):
 def process_file(input_file, output_dir, annotations):
     try:
         # Extract ECG data and metadata
-        data, metadata = extract_data(input_file)
+        rhythm_leads, median_leads, metadata = extract_data(input_file)
 
         # Create output file path
-        output_file = os.path.join(output_dir, os.path.basename(input_file) + '.dcm')
+        output_file = os.path.join(output_dir, remove_all_extensions(os.path.basename(input_file)) + '.dcm')
 
         # Create DICOM file
-        create_dicom_ecg(data, metadata, output_file, annotations)
+        create_dicom_ecg(rhythm_leads, median_leads, metadata, output_file, annotations)
 
     except Exception as e:
         print(f"Error processing file {input_file}: {str(e)}")
         raise
-
+def remove_all_extensions(filename):
+    while True:
+        filename, ext = os.path.splitext(filename)
+        if ext == '':
+            return filename
 def main():
     parser = argparse.ArgumentParser(description='Convert ECG data to DICOM format.')
     parser.add_argument('input', type=str, help='Path to the input ECG file (.hea or .xml) or directory')

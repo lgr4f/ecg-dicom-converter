@@ -288,7 +288,7 @@ def add_patient_study_info(ds, metadata, file_meta, character_set='ISO_IR 192', 
     ds[0x0040, 0x0275].value.append(item)
 
 def get_performed_procedure_step_end_data(metadata):
-    max_sample_count = max(metadata['SampleCount'].values())
+    max_sample_count = max(metadata['RhythmCount'].values())
     sampling_frequency = metadata['SampleFrequency']
 
     # Startzeit und Datum auslesen
@@ -320,56 +320,77 @@ def get_performed_procedure_step_end_time(metadata):
     sampling_frequency = metadata['SampleFrequency']
     start_time = metadata['AcquisitionTime']
 
-def add_waveform_data(ds, data, metadata):
+def add_waveform_data(ds, waveform_dict, metadata):
+    """
+    Add both rhythm and median waveform data to the DICOM file.
+    waveform_dict should be like:
+        {
+            "Rhythm": {...},
+            "Median": {...}
+        }
+    """
+    ds.little_endian = True
+    ds.implicit_vr = False
+    ds.WaveformSequence = Sequence()
+
     lead_order = ['I', 'II', 'III', 'aVR', 'aVL', 'aVF', 'V1', 'V2', 'V3', 'V4', 'V5', 'V6']
     code_values = ['2:1', '2:2', '2:61', '2:62', '2:63', '2:64', '2:3', '2:4', '2:5', '2:6', '2:7', '2:8']
-    num_samples = len(next(iter(data.values())))
-    num_leads = len(lead_order)
 
-    ds.is_little_endian = True
-    ds.is_implicit_VR = False
-    ds.WaveformSequence = Sequence()
-    waveform_item = Dataset()
-    waveform_item.MultiplexGroupTimeOffset = 0
-    waveform_item.TriggerTimeOffset = 0
-    waveform_item.WaveformOriginality = 'ORIGINAL'
-    waveform_item.NumberOfWaveformChannels = num_leads
-    waveform_item.NumberOfWaveformSamples = num_samples
-    waveform_item.SamplingFrequency = metadata.get('SampleFrequency', '')
-    waveform_item.WaveformBitsAllocated = 16
-    waveform_item.WaveformSampleInterpretation = 'SS'
-    waveform_data = np.zeros((num_samples, num_leads))
-    waveform_item.ChannelDefinitionSequence = Sequence()
+    for label in ["Rhythm", "Median"]:
+        if label not in waveform_dict or not waveform_dict[label]:
+            continue  # Skip if missing
 
-    for i, lead_id in enumerate(lead_order):
-        channel_def_item = Dataset()
-        channel_def_item.ChannelNumber = i + 1
-        channel_def_item.ChannelLabel = f'Lead_{lead_id}'
-        channel_def_item.ChannelStatus = 'OK'
-        channel_def_item.WaveformBitsStored = 16
-        channel_def_item.ChannelSourceSequence = Sequence([Dataset()])
-        source = channel_def_item.ChannelSourceSequence[0]
-        source.CodeValue = code_values[i]  # Set CodeValue based on the lead
-        source.CodingSchemeDesignator = 'MDC'
-        source.CodeMeaning = lead_id
-        channel_def_item.ChannelSensitivityUnitsSequence = Sequence([Dataset()])
-        channel_def_item.ChannelSensitivityUnitsSequence[0].CodeValue = 'uV'
-        channel_def_item.ChannelSensitivityUnitsSequence[0].CodingSchemeDesignator = 'UCUM'
-        channel_def_item.ChannelSensitivityUnitsSequence[0].CodingSchemeVersion = '1.4'
-        channel_def_item.ChannelSensitivityUnitsSequence[0].CodeMeaning = 'microvolt'
+        data = waveform_dict[label]
+        num_samples = len(next(iter(data.values())))
+        num_leads = len(lead_order)
 
-        lead_filters = metadata.get('LeadFilters', {})
-        # Adding the channel-specific filter information
-        channel_def_item.FilterLowFrequency = lead_filters.get(lead_id, {}).get('HighPassFilter', '0')
-        channel_def_item.FilterHighFrequency = lead_filters.get(lead_id, {}).get('LowPassFilter', '0')
-        channel_def_item.NotchFilterFrequency = lead_filters.get(lead_id, {}).get('ACFilter', '0')
+        waveform_item = Dataset()
+        waveform_item.MultiplexGroupTimeOffset = 0
+        waveform_item.MultiplexGroupLabel = label.upper()
+        waveform_item.TriggerTimeOffset = 0
+        waveform_item.WaveformOriginality = 'ORIGINAL'
+        waveform_item.NumberOfWaveformChannels = num_leads
+        waveform_item.NumberOfWaveformSamples = num_samples
+        waveform_item.SamplingFrequency = metadata.get('SampleFrequency', '')
+        waveform_item.WaveformBitsAllocated = 16
+        waveform_item.WaveformSampleInterpretation = 'SS'
+        waveform_data = np.zeros((num_samples, num_leads))
+        waveform_item.ChannelDefinitionSequence = Sequence()
 
+        lead_filters = metadata.get(f'{label}LeadFilters', {})
 
-        waveform_item.ChannelDefinitionSequence.append(channel_def_item)
-        waveform_data[:, i] = data[lead_id] * 1000
+        for i, lead_id in enumerate(lead_order):
+            channel_def_item = Dataset()
+            channel_def_item.ChannelNumber = i + 1
+            channel_def_item.ChannelLabel = f'Lead_{lead_id}'
+            channel_def_item.ChannelStatus = 'OK'
+            channel_def_item.WaveformBitsStored = 16
+            channel_def_item.ChannelSourceSequence = Sequence([Dataset()])
+            source = channel_def_item.ChannelSourceSequence[0]
+            source.CodeValue = code_values[i]
+            source.CodingSchemeDesignator = 'MDC'
+            source.CodeMeaning = lead_id
+            channel_def_item.ChannelSensitivityUnitsSequence = Sequence([Dataset()])
+            channel_def_item.ChannelSensitivityUnitsSequence[0].CodeValue = 'uV'
+            channel_def_item.ChannelSensitivityUnitsSequence[0].CodingSchemeDesignator = 'UCUM'
+            channel_def_item.ChannelSensitivityUnitsSequence[0].CodingSchemeVersion = '1.4'
+            channel_def_item.ChannelSensitivityUnitsSequence[0].CodeMeaning = 'microvolt'
 
-    waveform_item.WaveformData = waveform_data.astype(np.int16).tobytes()
-    ds.WaveformSequence.append(waveform_item)
+            # Add filter info
+            channel_def_item.FilterLowFrequency = lead_filters.get(lead_id, {}).get('HighPassFilter', '0')
+            channel_def_item.FilterHighFrequency = lead_filters.get(lead_id, {}).get('LowPassFilter', '0')
+            channel_def_item.NotchFilterFrequency = lead_filters.get(lead_id, {}).get('ACFilter', '0')
+
+            waveform_item.ChannelDefinitionSequence.append(channel_def_item)
+
+            if lead_id in data:
+                waveform_data[:, i] = data[lead_id] * 1000  # uV to mV
+            else:
+                waveform_data[:, i] = 0  # Fill with zeros if lead missing
+
+        waveform_item.WaveformData = waveform_data.astype(np.int16).tobytes()
+        ds.WaveformSequence.append(waveform_item)
+
 
 
 
@@ -398,7 +419,7 @@ def merge_annotations(default_annotations, csv_annotations):
 
 # Existing code for adding ECG data and annotations (unchanged)...
 
-def create_dicom_ecg(data, metadata, output_file, annotations):
+def create_dicom_ecg(rhythm_leads, median_leads, metadata, output_file, annotations):
     ds = None
     file_meta = None
 
@@ -424,7 +445,11 @@ def create_dicom_ecg(data, metadata, output_file, annotations):
 
     # Add waveform data
     try:
-        add_waveform_data(ds, data, metadata)
+        add_waveform_data(ds, {
+            "Rhythm": rhythm_leads,
+            "Median": median_leads
+        }, metadata)
+
     except KeyError as e:
         raise RuntimeError(f"Missing required waveform data: {str(e)}")
     except Exception as e:
