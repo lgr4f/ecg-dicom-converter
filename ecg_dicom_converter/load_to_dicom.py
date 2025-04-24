@@ -329,8 +329,6 @@ def add_waveform_data(ds, waveform_dict, metadata):
             "Median": {...}
         }
     """
-    ds.little_endian = True
-    ds.implicit_vr = False
     ds.WaveformSequence = Sequence()
 
     lead_order = ['I', 'II', 'III', 'aVR', 'aVL', 'aVF', 'V1', 'V2', 'V3', 'V4', 'V5', 'V6']
@@ -471,7 +469,7 @@ def create_dicom_ecg(rhythm_leads, median_leads, metadata, output_file, annotati
 
     # Save the DICOM file
     try:
-        ds.save_as(output_file)
+        ds.save_as(output_file, little_endian=True, implicit_vr=False)
         print(f'DICOM file saved as {output_file}')
     except Exception as e:
         raise RuntimeError(f"Error saving DICOM file: {str(e)}")

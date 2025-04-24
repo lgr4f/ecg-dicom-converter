@@ -2,12 +2,11 @@ from setuptools import setup, find_packages
 
 setup(
     name='ecg_dicom_converter',
-    version='1.0.0',
+    version='1.0.1',
     packages=find_packages(),
     install_requires=[
-        'wfdb>=3.3.0',
         'numpy>=1.18.4',
-        'pydicom>=2.1.0'
+        'pydicom>=3.0.0'
     ],
     entry_points={
         'console_scripts': [

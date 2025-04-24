@@ -1,7 +1,7 @@
 
 # DICOM-ECG-Converter
 
-This package provides tools to extract ECG data from WFDB and Muse XML formats and convert it to DICOM format.
+This package provides tools to extract ECG data from Muse XML format and convert it to DICOM format.
 
 ## Installation
 

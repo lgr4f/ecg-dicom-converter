@@ -1,8 +1,7 @@
 import argparse
 import os
-from pathlib import Path
-from .extract_ecg_and_metadata import extract_data
-from .load_to_dicom import create_dicom_ecg, DEFAULT_ANNOTATIONS, load_annotations_from_csv, merge_annotations
+from ecg_dicom_converter.extract_ecg_and_metadata import extract_data
+from ecg_dicom_converter.load_to_dicom import create_dicom_ecg, DEFAULT_ANNOTATIONS, load_annotations_from_csv, merge_annotations
 
 class AnnotationsFileNotFoundError(Exception):
     pass
@@ -28,7 +27,7 @@ def remove_all_extensions(filename):
             return filename
 def main():
     parser = argparse.ArgumentParser(description='Convert ECG data to DICOM format.')
-    parser.add_argument('input', type=str, help='Path to the input ECG file (.hea or .xml) or directory')
+    parser.add_argument('input', type=str, help='Path to the input ECG file (.xml) or directory')
     parser.add_argument('output_dir', type=str, help='Path to the output directory')
     parser.add_argument('--annotations', type=str, help='Path to the annotations CSV file', default=None)
     parser.add_argument('-r', '--recursive', action='store_true', help='Process all files in the input directory')
@@ -54,7 +53,7 @@ def main():
 
         for root, _, files in os.walk(args.input):
             for file in files:
-                if file.endswith('.hea') or file.endswith('.xml'):
+                if file.endswith('.xml'):
                     input_file_path = os.path.join(root, file)
                     try:
                         process_file(input_file_path, args.output_dir, annotations)

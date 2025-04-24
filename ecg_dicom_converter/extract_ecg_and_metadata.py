@@ -1,4 +1,3 @@
-import wfdb
 import xml.etree.ElementTree as ET
 import base64
 import struct
@@ -7,19 +6,6 @@ import warnings
 import logging
 
 logging.basicConfig(level=logging.INFO)
-
-def extract_wfdb_data(file_path):
-    record = wfdb.rdrecord(file_path[:-4])
-    data = record.p_signal
-    metadata = {
-        'PatientName': record.comments[0].split(': ')[1] if 'Patient' in record.comments[0] else 'Unknown^Patient',
-        'PatientID': record.comments[1].split(': ')[1] if 'ID' in record.comments[1] else 'Unknown',
-        'PatientAge': None,
-        'Gender': None
-    }
-    return data, metadata
-
-
 def decode_waveform_data(waveform_data, amplitude_units_per_bit):
     decoded_data = base64.b64decode(waveform_data.strip())
     data_points = struct.unpack('<' + 'h' * (len(decoded_data) // 2), decoded_data)
@@ -216,11 +202,9 @@ def extract_muse_xml_data(file_path):
 
 def extract_data(file_path):
     try:
-        if file_path.endswith('.hea'):
-            return extract_wfdb_data(file_path)
-        elif file_path.endswith('.xml'):
+        if file_path.endswith('.xml'):
             return extract_muse_xml_data(file_path)
         else:
-            raise ValueError(f"Unsupported file format in {file_path}. Please provide a WFDB (.hea) or Muse XML (.xml) file.")
+            raise ValueError(f"Unsupported file format in {file_path}. Please provide a Muse XML (.xml) file.")
     except Exception as e:
         raise ValueError(f"Error extracting data from {file_path}: {str(e)}")
