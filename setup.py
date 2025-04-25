@@ -2,11 +2,11 @@ from setuptools import setup, find_packages
 
 setup(
     name='ecg_dicom_converter',
-    version='1.0.1',
+    version='1.0.5',
     packages=find_packages(),
     install_requires=[
         'numpy>=1.18.4',
-        'pydicom>=3.0.0'
+        'pydicom==3.0.1'
     ],
     entry_points={
         'console_scripts': [

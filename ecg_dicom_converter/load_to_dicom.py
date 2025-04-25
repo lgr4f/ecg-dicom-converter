@@ -1,7 +1,5 @@
 import csv
-import pydicom
-from pydicom.dataset import Dataset, FileDataset
-from pydicom.sequence import Sequence
+from pydicom import uid, valuerep, dataset, sequence
 from datetime import datetime, timedelta
 import numpy as np
 import uuid
@@ -129,12 +127,12 @@ def generate_implementation_uid():
     return implementation_uid
 
 def create_file_meta():
-    file_meta = pydicom.dataset.FileMetaDataset()
+    file_meta = dataset.FileMetaDataset()
     file_meta.FileMetaInformationGroupLength = 202
     file_meta.FileMetaInformationVersion = b'\x00\x01'
     file_meta.MediaStorageSOPClassUID = "1.2.840.10008.5.1.4.1.1.9.1.1" # ID = "12-lead ECG Waveform Storage" https://dicom.nema.org/dicom/2013/output/chtml/part04/sect_i.4.html
-    file_meta.MediaStorageSOPInstanceUID = pydicom.uid.generate_uid()
-    file_meta.TransferSyntaxUID = pydicom.uid.ExplicitVRLittleEndian
+    file_meta.MediaStorageSOPInstanceUID = uid.generate_uid()
+    file_meta.TransferSyntaxUID = uid.ExplicitVRLittleEndian
     file_meta.ImplementationClassUID = generate_implementation_uid() # ID of the system which created the file
     return file_meta
 
@@ -166,56 +164,78 @@ def format_time(time_str):
         return datetime.strptime(time_str, '%H:%M:%S').strftime('%H%M%S')
     except ValueError:
         return ''
-
 def format_datetime(date_str, time_str):
-    try:
-        date = datetime.strptime(date_str, '%d-%m-%Y').date()
-        time_obj = datetime.strptime(time_str, '%H:%M:%S').time()
-        return datetime.combine(date, time_obj).strftime('%Y%m%d%H%M%S')
-    except ValueError:
+    date_formats = ['%d-%m-%Y', '%m-%d-%Y',  '%Y-%m-%d', '%Y%m%d']
+    time_formats = ['%H:%M:%S', '%H%M%S']
+
+    for df in date_formats:
+        try:
+            date = datetime.strptime(date_str, df).date()
+            break
+        except (ValueError, TypeError):
+            continue
+    else:
         return ''
 
+    for tf in time_formats:
+        try:
+            time_obj = datetime.strptime(time_str, tf).time()
+            break
+        except (ValueError, TypeError):
+            continue
+    else:
+        return ''
+
+    return datetime.combine(date, time_obj).strftime('%Y%m%d%H%M%S')
+
+
 def add_patient_study_info(ds, metadata, file_meta, character_set='ISO_IR 192', procedure_code='P2-3120A', procedure_meaning='12 lead ECG'):
+    # Grundlegende DICOM-Felder setzen
+    now = datetime.now()
     ds.SpecificCharacterSet = character_set
-    ds.InstanceCreationDate = datetime.now().strftime('%Y%m%d')
-    ds.InstanceCreationTime = datetime.now().strftime('%H%M%S')
+    ds.InstanceCreationDate = now.strftime('%Y%m%d')
+    ds.InstanceCreationTime = now.strftime('%H%M%S')
     ds.SOPClassUID = file_meta.get("MediaStorageSOPClassUID")
     ds.SOPInstanceUID = file_meta.get("MediaStorageSOPInstanceUID")
-    ds.SeriesInstanceUID = str(pydicom.uid.generate_uid()).replace(".", "")
-    ds.StudyInstanceUID = pydicom.uid.generate_uid()
+    ds.SeriesInstanceUID = str(uid.generate_uid()).replace(".", "")
+    ds.StudyInstanceUID = uid.generate_uid()
 
-    # Add study dates and times with warnings for missing metadata
-    AdmitDate = metadata.get('AdmitDate', '')
-    if not AdmitDate:
-        warnings.warn("The tag 'AdmitDate' is not in the XML. Used instead the acquisition date. Used instead the acquisition date (ecg recording) for the DICOM Tag Study and Series date.")
-    ds.StudyDate = format_date(AdmitDate)
-    ds.SeriesDate = format_date(AdmitDate)
+    # Datum & Uhrzeit auslesen
+    admit_date = metadata.get('AdmitDate')
+    admit_time = metadata.get('AdmitTime')
+    acquisition_date = metadata.get('AcquisitionDate')
+    acquisition_time = metadata.get('AcquisitionTime')
 
-    AcquisitionDate = metadata.get('AcquisitionDate', '')
-    if not AcquisitionDate:
-        warnings.warn("The tag 'AcquisitionDate' is not in the XML")
-    ds.ContentDate = format_date(AcquisitionDate)
-    ds.AcquisitionDateTime = format_datetime(AcquisitionDate, metadata.get('AcquisitionTime', ''))
+    # ContentDate und ContentTime
+    ds.ContentDate = format_date(acquisition_date)
+    ds.ContentTime = format_time(acquisition_time)
 
-    AdmitTime = metadata.get('AdmitTime', '')
-    if not AdmitTime:
-        warnings.warn("The tag 'AdmitTime' is not in the XML. Used instead the acquisition time (ecg recording) for the DICOM Tag Study and Series time.")
+    # AcquisitionDateTime
+    ds.AcquisitionDateTime = format_datetime(acquisition_date, acquisition_time)
+    if not acquisition_date or not acquisition_time:
+        warnings.warn("Incomplete or missing 'AcquisitionDate'/'AcquisitionTime'. 'AcquisitionDateTime' may be incomplete.")
 
-    if AdmitTime:
-        ds.StudyTime = format_time(AdmitTime)
+    # StudyDate / SeriesDate
+    if admit_date:
+        ds.StudyDate = format_date(admit_date)
+        ds.SeriesDate = format_date(admit_date)
+    elif acquisition_date:
+        warnings.warn("'AdmitDate' missing. Using 'AcquisitionDate' instead for Study/Series Date.")
+        ds.StudyDate = format_date(acquisition_date)
+        ds.SeriesDate = format_date(acquisition_date)
     else:
-        if not metadata.get('AcquisitionTime', ''):
-            ds.StudyTime = metadata.get('AcquisitionTime', '')
-    if AdmitTime:
-        ds.SeriesTime = format_time(AdmitTime)
-    else:
-        if not metadata.get('AcquisitionTime', ''):
-            ds.SeriesTime = metadata.get('AcquisitionTime', '')
+        warnings.warn("Neither 'AdmitDate' nor 'AcquisitionDate' available. Cannot set Study/Series Date.")
 
-    AcquisitionTime = metadata.get('AcquisitionTime', '')
-    if not AcquisitionTime:
-        warnings.warn("The tag 'AcquisitionTime' is not in the XML")
-    ds.ContentTime = format_time(AcquisitionTime)
+    # StudyTime / SeriesTime
+    if admit_time:
+        ds.StudyTime = format_time(admit_time)
+        ds.SeriesTime = format_time(admit_time)
+    elif acquisition_time:
+        warnings.warn("'AdmitTime' missing. Using 'AcquisitionTime' instead for Study/Series Time.")
+        ds.StudyTime = format_time(acquisition_time)
+        ds.SeriesTime = format_time(acquisition_time)
+    else:
+        warnings.warn("Neither 'AdmitTime' nor 'AcquisitionTime' available. Cannot set Study/Series Time.")
 
     # Rest of the metadata with warnings
     ds.AccessionNumber = ''
@@ -231,7 +251,7 @@ def add_patient_study_info(ds, metadata, file_meta, character_set='ISO_IR 192', 
         warnings.warn("The tag 'SiteName' is not in the XML")
 
     ds.StudyDescription = 'RestingECG'
-    ds.ProcedureCodeSequence = [Dataset()]
+    ds.ProcedureCodeSequence = [dataset.Dataset()]
     ds.ProcedureCodeSequence[0].CodeValue = procedure_code
     ds.ProcedureCodeSequence[0].CodingSchemeDesignator = 'SRT'
     ds.ProcedureCodeSequence[0].CodeMeaning = procedure_meaning
@@ -274,14 +294,14 @@ def add_patient_study_info(ds, metadata, file_meta, character_set='ISO_IR 192', 
 
     # Additional measurements (if needed)
     Measurements = metadata.get('Measurements', {})
-    ds.add_new((0x0040, 0x0275), 'SQ', Sequence())
-    item = Dataset()
+    ds.add_new((0x0040, 0x0275), 'SQ', sequence.Sequence())
+    item = dataset.Dataset()
     item.CodeValue = '8867-4'
     item.CodingSchemeDesignator = 'LN'
     item.CodeMeaning = 'Ventricular rate'
-    item.MeasuredValueSequence = [Dataset()]
+    item.MeasuredValueSequence = [dataset.Dataset()]
     item.MeasuredValueSequence[0].NumericValue = Measurements.get('VentricularRate', '')
-    item.MeasuredValueSequence[0].MeasurementUnitsCodeSequence = [Dataset()]
+    item.MeasuredValueSequence[0].MeasurementUnitsCodeSequence = [dataset.Dataset()]
     item.MeasuredValueSequence[0].MeasurementUnitsCodeSequence[0].CodeValue = 'uV'
     item.MeasuredValueSequence[0].MeasurementUnitsCodeSequence[0].CodingSchemeDesignator = 'UCUM'
     item.MeasuredValueSequence[0].CodeMeaning = 'microvolt'
@@ -329,7 +349,7 @@ def add_waveform_data(ds, waveform_dict, metadata):
             "Median": {...}
         }
     """
-    ds.WaveformSequence = Sequence()
+    ds.WaveformSequence = sequence.Sequence()
 
     lead_order = ['I', 'II', 'III', 'aVR', 'aVL', 'aVF', 'V1', 'V2', 'V3', 'V4', 'V5', 'V6']
     code_values = ['2:1', '2:2', '2:61', '2:62', '2:63', '2:64', '2:3', '2:4', '2:5', '2:6', '2:7', '2:8']
@@ -342,7 +362,7 @@ def add_waveform_data(ds, waveform_dict, metadata):
         num_samples = len(next(iter(data.values())))
         num_leads = len(lead_order)
 
-        waveform_item = Dataset()
+        waveform_item = dataset.Dataset()
         waveform_item.MultiplexGroupTimeOffset = 0
         waveform_item.MultiplexGroupLabel = label.upper()
         waveform_item.TriggerTimeOffset = 0
@@ -353,22 +373,22 @@ def add_waveform_data(ds, waveform_dict, metadata):
         waveform_item.WaveformBitsAllocated = 16
         waveform_item.WaveformSampleInterpretation = 'SS'
         waveform_data = np.zeros((num_samples, num_leads))
-        waveform_item.ChannelDefinitionSequence = Sequence()
+        waveform_item.ChannelDefinitionSequence = sequence.Sequence()
 
         lead_filters = metadata.get(f'{label}LeadFilters', {})
 
         for i, lead_id in enumerate(lead_order):
-            channel_def_item = Dataset()
+            channel_def_item = dataset.Dataset()
             channel_def_item.ChannelNumber = i + 1
             channel_def_item.ChannelLabel = f'Lead_{lead_id}'
             channel_def_item.ChannelStatus = 'OK'
             channel_def_item.WaveformBitsStored = 16
-            channel_def_item.ChannelSourceSequence = Sequence([Dataset()])
+            channel_def_item.ChannelSourceSequence = sequence.Sequence([dataset.Dataset()])
             source = channel_def_item.ChannelSourceSequence[0]
             source.CodeValue = code_values[i]
             source.CodingSchemeDesignator = 'MDC'
             source.CodeMeaning = lead_id
-            channel_def_item.ChannelSensitivityUnitsSequence = Sequence([Dataset()])
+            channel_def_item.ChannelSensitivityUnitsSequence = sequence.Sequence([dataset.Dataset()])
             channel_def_item.ChannelSensitivityUnitsSequence[0].CodeValue = 'uV'
             channel_def_item.ChannelSensitivityUnitsSequence[0].CodingSchemeDesignator = 'UCUM'
             channel_def_item.ChannelSensitivityUnitsSequence[0].CodingSchemeVersion = '1.4'
@@ -429,7 +449,7 @@ def create_dicom_ecg(rhythm_leads, median_leads, metadata, output_file, annotati
 
     # Create the DICOM file dataset
     try:
-        ds = FileDataset(output_file, {}, file_meta=file_meta, preamble=b"\0" * 128)
+        ds = dataset.FileDataset(output_file, {}, file_meta=file_meta, preamble=b"\0" * 128)
     except Exception as e:
         raise RuntimeError(f"Error creating DICOM dataset: {str(e)}")
 
@@ -476,11 +496,11 @@ def create_dicom_ecg(rhythm_leads, median_leads, metadata, output_file, annotati
 
 
 def add_annotations(ds, metadata, annotations):
-    ds.WaveformAnnotationSequence = Sequence()
+    ds.WaveformAnnotationSequence = sequence.Sequence()
     measurements = metadata.get('measurements', {})
 
     for diagnosis in metadata.get('diagnosis', []):
-        annotation_item = Dataset()
+        annotation_item = dataset.Dataset()
         annotation_item.ReferencedWaveformChannels = 0
         annotation_item.AnnotationGroupNumber = 0
         annotation_item.UnformattedTextValue = diagnosis
@@ -516,12 +536,12 @@ def add_annotations(ds, metadata, annotations):
 
 def create_ecg_annotation(ds, annotation_group_number, value, code_value, code_meaning, unit_code_value,
                           unit_code_meaning, codingschemedesignator, codeschemeversion):
-    annotation_item = Dataset()
+    annotation_item = dataset.Dataset()
     annotation_item.AnnotationGroupNumber = annotation_group_number
-    annotation_item.NumericValue = pydicom.valuerep.DSfloat(value)
+    annotation_item.NumericValue = valuerep.DSfloat(value)
 
     # Define the Measurement Units Code Sequence using the provided units
-    mu_item = Dataset()
+    mu_item = dataset.Dataset()
     mu_item.CodeValue = unit_code_value
     mu_item.CodingSchemeDesignator = 'UCUM'
     mu_item.CodingSchemeVersion = "1.4"
@@ -529,7 +549,7 @@ def create_ecg_annotation(ds, annotation_group_number, value, code_value, code_m
     annotation_item.MeasurementUnitsCodeSequence = Sequence([mu_item])
 
     # Define the Concept Name Code Sequence with MDC information
-    conceptnamecodesequence = Dataset()
+    conceptnamecodesequence = dataset.Dataset()
     conceptnamecodesequence.CodeValue = code_value
     conceptnamecodesequence.CodingSchemeDesignator = codingschemedesignator
     conceptnamecodesequence.CodingSchemeVersion = codeschemeversion
@@ -539,28 +559,28 @@ def create_ecg_annotation(ds, annotation_group_number, value, code_value, code_m
     ds.WaveformAnnotationSequence.append(annotation_item)
 def create_ecg_annotation(ds, annotation_group_number, value, code_value, code_meaning, unit_code_value,
                           unit_code_meaning, codingschemedesignator, codeschemeversion):
-    annotation_item = Dataset()
+    annotation_item = dataset.Dataset()
     # Reference the correct waveform channels
     annotation_item.ReferencedWaveformChannels = 0
     annotation_item.AnnotationGroupNumber = annotation_group_number
     # Set the numeric value for the interval
-    annotation_item.NumericValue = pydicom.valuerep.DSfloat(value)
+    annotation_item.NumericValue = valuerep.DSfloat(value)
 
     # Define the Measurement Units Code Sequence using the provided units
-    mu_item = Dataset()
+    mu_item = dataset.Dataset()
     mu_item.CodeValue = unit_code_value  # Measurement unit code, e.g., 'ms', '{H.B.}/min', 'deg'
     mu_item.CodingSchemeDesignator = 'UCUM'
     mu_item.CodingSchemeVersion = "1.4"
     mu_item.CodeMeaning = unit_code_meaning  # The meaning, e.g., 'millisecond', 'heart beats per minute', 'degrees'
-    annotation_item.MeasurementUnitsCodeSequence = Sequence([mu_item])
+    annotation_item.MeasurementUnitsCodeSequence = sequence.Sequence([mu_item])
 
     # Define the Concept Name Code Sequence with MDC information
-    conceptnamecodesequence = Dataset()
+    conceptnamecodesequence = dataset.Dataset()
     conceptnamecodesequence.CodeValue = code_value  # The specific MDC code
     conceptnamecodesequence.CodingSchemeDesignator = codingschemedesignator
     conceptnamecodesequence.CodingSchemeVersion = codeschemeversion
     conceptnamecodesequence.CodeMeaning = code_meaning  # Description of the interval
-    annotation_item.ConceptNameCodeSequence = Sequence([conceptnamecodesequence])
+    annotation_item.ConceptNameCodeSequence = sequence.Sequence([conceptnamecodesequence])
 
     # Append to the dataset
     ds.WaveformAnnotationSequence.append(annotation_item)
@@ -568,20 +588,20 @@ def create_ecg_annotation(ds, annotation_group_number, value, code_value, code_m
 
 def add_acquisition_context_sequence(ds, metadata):
     # Create the Acquisition Context Sequence
-    acq_context_seq = Sequence()
+    acq_context_seq = sequence.Sequence()
 
     # First item (Lead System)
-    item1 = Dataset()
+    item1 = dataset.Dataset()
     item1.ValueType = 'CODE'
 
     # ConceptNameCodeSequence for Lead System
-    item1.ConceptNameCodeSequence = Sequence([Dataset()])
+    item1.ConceptNameCodeSequence = sequence.Sequence([dataset.Dataset()])
     item1.ConceptNameCodeSequence[0].CodeValue = '10:11345'
     item1.ConceptNameCodeSequence[0].CodingSchemeDesignator = 'MDC'
     item1.ConceptNameCodeSequence[0].CodeMeaning = 'Lead System'
 
     # Concept Code Sequence for Standard 12-lead
-    item1.ConceptCodeSequence = Sequence([Dataset()])
+    item1.ConceptCodeSequence = sequence.Sequence([dataset.Dataset()])
     item1.ConceptCodeSequence[0].CodeValue = '10:11265'
     item1.ConceptCodeSequence[0].CodingSchemeDesignator = 'MDC'
     item1.ConceptCodeSequence[0].CodeMeaning = 'Standard 12-lead'
@@ -590,18 +610,18 @@ def add_acquisition_context_sequence(ds, metadata):
     acq_context_seq.append(item1)
 
     # Second item (Heart Rate)
-    item2 = Dataset()
+    item2 = dataset.Dataset()
     item2.ValueType = 'NUMERIC'
 
     # ConceptNameCodeSequence for Heart Rate
-    item2.ConceptNameCodeSequence = Sequence([Dataset()])
+    item2.ConceptNameCodeSequence = sequence.Sequence([dataset.Dataset()])
     item2.ConceptNameCodeSequence[0].CodeValue = '8867-4'
     item2.ConceptNameCodeSequence[0].CodingSchemeDesignator = 'LN'
     item2.ConceptNameCodeSequence[0].CodingSchemeVersion = '19971101'
     item2.ConceptNameCodeSequence[0].CodeMeaning = 'Heart rate'
 
     # Measurement Units Code Sequence for Heart Rate
-    item2.MeasurementUnitsCodeSequence = Sequence([Dataset()])
+    item2.MeasurementUnitsCodeSequence = sequence.Sequence([dataset.Dataset()])
     item2.MeasurementUnitsCodeSequence[0].CodeValue = '{H.B.}/min'
     item2.MeasurementUnitsCodeSequence[0].CodingSchemeDesignator = 'UCUM'
     item2.MeasurementUnitsCodeSequence[0].CodingSchemeVersion = '1.4'
@@ -610,7 +630,7 @@ def add_acquisition_context_sequence(ds, metadata):
     # Set the heart rate value from metadata
     ventricular_rate = metadata.get('measurements').get('ventricular_rate', None)
     if ventricular_rate:
-        item2.NumericValue = pydicom.valuerep.DSfloat(ventricular_rate)
+        item2.NumericValue = valuerep.DSfloat(ventricular_rate)
 
     # Append the second item (Heart Rate) to the sequence
     acq_context_seq.append(item2)
