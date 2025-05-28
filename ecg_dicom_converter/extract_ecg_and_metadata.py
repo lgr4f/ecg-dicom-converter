@@ -171,8 +171,9 @@ def extract_muse_xml_data(file_path):
                 metadata['SampleFrequency'] = float(base) * (10 ** float(exp))
 
         # Diagnoses
+        diagnosis = root.find('.//Diagnosis')
         metadata['diagnosis'] = [d.findtext('StmtText').strip()
-                                 for d in root.findall('.//DiagnosisStatement')
+                                 for d in diagnosis.findall('.//DiagnosisStatement')
                                  if d.findtext('StmtText')]
 
         # QRS Times
